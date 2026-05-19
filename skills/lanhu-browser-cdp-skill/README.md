@@ -2,17 +2,19 @@
 
 一个用于读取蓝湖设计稿/原型页面的 Codex Skill。
 
-它通过 Chrome DevTools Protocol (CDP) 连接本地 Chrome 或 Edge 浏览器，帮助 agent 定位蓝湖标签页、提取 Axure 原型资源、读取需求页面正文，并按需截图进行 UI 分析。
+它通过 Chrome DevTools Protocol (CDP) 连接本地 Chrome 或 Edge 浏览器，帮助 agent 定位蓝湖标签页、提取 Axure 原型资源，并按需截图进行 UI 分析。
+
+访问边界：这个 skill 只允许访问 `lanhuapp.com` 及其子域名（例如 `axure-file.lanhuapp.com`）。脚本会拒绝打开、列出、读取、截图或执行 JS 于非蓝湖页面。
 
 ## 用途
 
 - 检测本地浏览器 CDP 端口是否可用。
 - 在 CDP 浏览器中打开或复用用户给出的蓝湖链接。
-- 列出浏览器中已打开的页面标签。
+- 列出浏览器中已打开的蓝湖页面标签。
 - 从蓝湖页面状态中提取 Axure manifest。
 - 获取 Axure 页面树、页面 HTML、dataJs、mapping 资源地址。
 - 提取当前蓝湖页面中的 Axure iframe 地址。
-- 在页面中执行 JS，读取可见文本或页面状态。
+- 在蓝湖页面中执行 JS，读取可见文本或页面状态。
 - 通过 CDP 截取整页或指定区域截图。
 
 ## 适合场景
@@ -26,7 +28,7 @@
 
 - 没有本地浏览器访问权限的远程环境。
 - 不能开启 Chrome / Edge 远程调试端口的环境。
-- 需要访问非可信页面但不希望暴露本地 CDP 调试接口的场景。
+- 需要访问非蓝湖页面的场景。
 
 ## 安装/依赖
 
@@ -122,7 +124,7 @@ scripts/open_url.py
   在 CDP 浏览器中打开或复用 URL。
 
 scripts/list_tabs.py
-  列出浏览器页面标签。
+  只列出蓝湖页面标签。
 
 scripts/extract_axure_manifest.py
   提取 Axure manifest。

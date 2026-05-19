@@ -1,11 +1,13 @@
 ---
 name: lanhu-browser-cdp-skill
-description: Browser CDP workflow and scripts for inspecting Lanhu and Axure design/prototype pages. Use when the user asks Codex or another agent to view, analyze, extract, screenshot, or debug Lanhu design files, Axure prototypes, design annotations, iframe content, browser tabs, or related requirement pages through a local Chrome or Edge remote debugging port.
+description: Browser CDP workflow and scripts for inspecting Lanhu and Axure design/prototype pages. Use when the user asks Codex or another agent to view, analyze, extract, screenshot, or debug Lanhu design files, Axure prototypes, design annotations, iframe content, or Lanhu browser tabs through a local Chrome or Edge remote debugging port.
 ---
 
 # Browser CDP 蓝湖查看 Skill
 
 通过 Chrome DevTools Protocol (CDP) 连接用户浏览器，查看蓝湖设计稿的完整标注和交互说明。
+
+**访问边界**：本 Skill 只允许访问 `lanhuapp.com` 及其子域名（例如 `axure-file.lanhuapp.com`）下的蓝湖链接。不得列出、打开、读取、截图或执行 JS 于非蓝湖页面；若用户提供 TAPD、Jira、Confluence、普通网页或其它非蓝湖链接，应要求用户提供对应的蓝湖链接或改用其它工具/Skill。
 
 **路径约定**：本 Skill 根目录为 SKILL.md 所在目录（即包含 SKILL.md 和 scripts/ 的文件夹）。所有脚本路径相对于该根目录，命令中统一使用 `{SKILL_DIR}/scripts/xxx.py` 的形式，运行时替换为实际绝对路径。脚本文件统一放在 `scripts/` 子目录下。
 
@@ -76,7 +78,7 @@ python3 {SKILL_DIR}/scripts/check_cdp.py
 
 ### 第三步：打开用户给出的蓝湖链接（仅当链接尚未打开时）
 
-如果用户直接给了蓝湖链接，或 `list_tabs.py lanhuapp` 找不到目标页面，但 CDP 端口已可用，先用 CDP 在调试浏览器中打开或复用该链接：
+如果用户直接给了蓝湖链接，或 `list_tabs.py` 找不到目标页面，但 CDP 端口已可用，先用 CDP 在调试浏览器中打开或复用该链接：
 
 ```bash
 python3 {SKILL_DIR}/scripts/open_url.py "https://lanhuapp.com/xxx"
@@ -84,26 +86,24 @@ python3 {SKILL_DIR}/scripts/open_url.py "https://lanhuapp.com/xxx"
 
 该脚本会：
 
-1. 检查同 URL 的页面是否已经打开，已打开则复用
-2. 未打开则通过 CDP 创建新标签页
-3. 等待页面 target 出现并输出 `ws:` 后面的 WebSocket URL
+1. 拒绝非 `*.lanhuapp.com` 链接
+2. 检查同 URL 的蓝湖页面是否已经打开，已打开则复用
+3. 未打开则通过 CDP 创建新标签页
+4. 等待页面 target 出现并输出 `ws:` 后面的 WebSocket URL
 
-拿到 `ws:` 后可直接进入第四步。如果用户没有给链接，或需要同时查看其它已打开的需求系统页面，再继续列出标签页。
+拿到 `ws:` 后可直接进入第四步。如果用户没有给链接，再继续列出已打开的蓝湖标签页。
 
-### 第四步：列出标签页，找到蓝湖和需求页面
+### 第四步：列出蓝湖标签页
 
 ```bash
-# 列出所有页面
+# 只列出蓝湖相关页面
 python3 {SKILL_DIR}/scripts/list_tabs.py
 
-# 只看蓝湖相关
+# 可选：按 URL 关键词进一步过滤
 python3 {SKILL_DIR}/scripts/list_tabs.py lanhuapp
-
-# 如果浏览器里有 TAPD/需求系统页面，也一起定位
-python3 {SKILL_DIR}/scripts/list_tabs.py tapd
 ```
 
-从结果中找到目标蓝湖标签页，记下 `ws:` 后面的 WebSocket URL。若同时打开了 TAPD/需求页，也记录其 `ws:`，可用于补充需求状态、分支、发版范围、上线时间等信息。
+从结果中找到目标蓝湖标签页，记下 `ws:` 后面的 WebSocket URL。脚本只输出蓝湖页面，不会展示其它浏览器标签页。
 
 ### 第五步：提取 Axure manifest（首选）
 
@@ -130,17 +130,7 @@ curl -sS "https://axure-file.lanhuapp.com/xxx.html"
 
 页面 HTML 中通常包含页面标题、按钮文案、字段名称、标注、注释、交互逻辑说明等。按模块分析时，先从 manifest 的 `path` 定位目标模块（例如“应用端”），再批量读取该模块下每个页面的 `htmlUrl`。
 
-### 第六步：读取需求页可见文本（可选但推荐）
-
-如果浏览器里同时打开了 TAPD 或其它需求系统页面，可用 CDP 读取正文，补充蓝湖之外的信息：
-
-```bash
-python3 {SKILL_DIR}/scripts/eval_js.py "ws://localhost:9222/devtools/page/xxx" "document.title + '\n' + document.body.innerText.slice(0, 12000)"
-```
-
-通常可获得：需求 ID、状态、父需求、原型/UI 链接、分支、发版范围、提测时间、预计上线时间、评论中的实现说明。
-
-### 第七步（可选）：CDP 截图查看 UI 布局
+### 第六步（可选）：CDP 截图查看 UI 布局
 
 ```bash
 # 全页截图
@@ -211,7 +201,7 @@ python3 {SKILL_DIR}/scripts/check_cdp.py
 
 ### 第三步：打开用户给出的蓝湖链接（仅当链接尚未打开时）
 
-如果用户直接给了蓝湖链接，或 `list_tabs.py lanhuapp` 找不到目标页面，但 CDP 端口已可用，先用 CDP 在调试浏览器中打开或复用该链接：
+如果用户直接给了蓝湖链接，或 `list_tabs.py` 找不到目标页面，但 CDP 端口已可用，先用 CDP 在调试浏览器中打开或复用该链接：
 
 ```bash
 python3 {SKILL_DIR}/scripts/open_url.py "https://lanhuapp.com/xxx"
@@ -219,13 +209,13 @@ python3 {SKILL_DIR}/scripts/open_url.py "https://lanhuapp.com/xxx"
 
 脚本输出 `ws:` 后，可直接进入第五步提取 iframe URL。
 
-### 第四步：列出标签页，找到蓝湖页面
+### 第四步：列出蓝湖标签页，找到蓝湖页面
 
 ```bash
-# 列出所有页面
+# 只列出蓝湖相关页面
 python3 {SKILL_DIR}/scripts/list_tabs.py
 
-# 只看蓝湖相关
+# 可选：按 URL 关键词进一步过滤
 python3 {SKILL_DIR}/scripts/list_tabs.py lanhuapp
 ```
 
@@ -282,7 +272,7 @@ python3 {SKILL_DIR}/scripts/eval_js.py "ws://localhost:9222/devtools/page/xxx" "
 |------|------|
 | `check_cdp.py` | 检测 9222 端口是否可用 |
 | `open_url.py <url> [--wait seconds]` | 在 CDP 浏览器中打开或复用 URL，并输出页面 `ws:` |
-| `list_tabs.py [keyword]` | 列出所有页面标签，可按 URL 关键词过滤 |
+| `list_tabs.py [keyword]` | 只列出蓝湖页面标签，可按 URL 关键词过滤 |
 | `extract_lanhu_iframe.py <ws_url>` | 提取蓝湖页面的 iframe src 列表 |
 | `extract_axure_manifest.py <ws_url> [keyword]` | 从蓝湖前端状态提取 Axure 最新版本 manifest，并输出页面树与每页静态资源 URL |
 | `screenshot.py <ws_url> [output] [x y w h scale]` | 截图，支持全页或指定区域 |
@@ -304,6 +294,7 @@ python3 {SKILL_DIR}/scripts/eval_js.py "ws://localhost:9222/devtools/page/xxx" "
 8. **复杂 JS 返回值**：`eval_js.py` 只打印 CDP `Runtime.evaluate` 的 `value` 字段。返回对象、数组等复杂结构时，表达式必须包 `JSON.stringify(...)`，否则可能输出空。
 9. **蓝湖登录态提示**：如果页面出现“由于打开过分享页，用户状态发生变化...”等提示，不要立刻停止。先尝试读取 `window.doc.currentAxureData` 和 `window.axureSidebar`，很多情况下页面树和 Axure 静态资源仍可访问。
 10. **iframe 不等于完整文档**：iframe HTML 常常只是当前页。完整分析优先读取最新版本 `jsonUrl` 中的 manifest，再按 `sitemap` 和 `pages` 批量抓取页面 HTML。
+11. **蓝湖访问限制**：所有脚本入口都会校验目标是否属于 `lanhuapp.com` 或其子域名。`open_url.py` 会拒绝打开非蓝湖链接；`list_tabs.py` 只输出蓝湖标签；`eval_js.py`、`screenshot.py`、`extract_lanhu_iframe.py`、`extract_axure_manifest.py` 会拒绝非蓝湖标签页的 `ws_url`。
 
 ---
 
@@ -316,4 +307,3 @@ python3 {SKILL_DIR}/scripts/eval_js.py "ws://localhost:9222/devtools/page/xxx" "
 | Axure 原型的标注/注释/交互说明 | manifest 页面 `htmlUrl` → `curl -sS`/WebFetch；当前页可用 iframe URL |
 | UI 视觉布局确认 | CDP 截图 + Read 查看 |
 | 中文文本内容 | Axure 静态 HTML/JSON 或 WebFetch（CDP 传中文可能乱码） |
-| TAPD/需求系统正文 | CDP 读取 `document.body.innerText` |

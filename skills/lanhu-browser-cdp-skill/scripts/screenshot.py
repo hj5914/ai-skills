@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """CDP 截图：全页面或指定区域"""
 import json, base64, sys, os
+from lanhu_guard import require_lanhu_ws_target
+
 try:
     import websocket
 except ImportError:
@@ -23,26 +25,32 @@ if len(sys.argv) > 6:
         "scale": int(sys.argv[7]) if len(sys.argv) > 7 else 2
     }
 
-ws = websocket.create_connection(ws_url, timeout=15)
-
-ws.send(json.dumps({"id": 1, "method": "Page.enable"}))
-ws.recv()
-
-params = {"format": "png"}
-if clip:
-    params["clip"] = clip
-
-ws.send(json.dumps({"id": 2, "method": "Page.captureScreenshot", "params": params}))
-resp = json.loads(ws.recv())
-
-if "result" in resp and "data" in resp["result"]:
-    img_data = base64.b64decode(resp["result"]["data"])
-    os.makedirs(os.path.dirname(output) or ".", exist_ok=True)
-    with open(output, "wb") as f:
-        f.write(img_data)
-    print(f"OK: {output} ({len(img_data)} bytes)")
-else:
-    print(f"ERROR: {json.dumps(resp, ensure_ascii=False)}", file=sys.stderr)
+try:
+    require_lanhu_ws_target(ws_url)
+except Exception as exc:
+    print(f"LANHU_ONLY_ACCESS_DENIED: {exc}", file=sys.stderr)
     sys.exit(1)
 
-ws.close()
+ws = websocket.create_connection(ws_url, timeout=15)
+try:
+    ws.send(json.dumps({"id": 1, "method": "Page.enable"}))
+    ws.recv()
+
+    params = {"format": "png"}
+    if clip:
+        params["clip"] = clip
+
+    ws.send(json.dumps({"id": 2, "method": "Page.captureScreenshot", "params": params}))
+    resp = json.loads(ws.recv())
+
+    if "result" in resp and "data" in resp["result"]:
+        img_data = base64.b64decode(resp["result"]["data"])
+        os.makedirs(os.path.dirname(output) or ".", exist_ok=True)
+        with open(output, "wb") as f:
+            f.write(img_data)
+        print(f"OK: {output} ({len(img_data)} bytes)")
+    else:
+        print(f"ERROR: {json.dumps(resp, ensure_ascii=False)}", file=sys.stderr)
+        sys.exit(1)
+finally:
+    ws.close()

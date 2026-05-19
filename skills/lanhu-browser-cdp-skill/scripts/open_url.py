@@ -6,16 +6,12 @@ import sys
 import time
 import urllib.error
 import urllib.parse
-import urllib.request
 
-
-CDP_BASE = "http://localhost:9222"
+from lanhu_guard import fetch_cdp_json, require_lanhu_url
 
 
 def fetch_json(path, timeout=5, method="GET"):
-    req = urllib.request.Request(f"{CDP_BASE}{path}", method=method)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read())
+    return fetch_cdp_json(path, timeout=timeout, method=method)
 
 
 def list_page_tabs():
@@ -27,7 +23,7 @@ def normalize_url(url):
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError("URL must start with http:// or https://")
-    return urllib.parse.urlunparse(parsed)
+    return require_lanhu_url(urllib.parse.urlunparse(parsed))
 
 
 def same_url(left, right):

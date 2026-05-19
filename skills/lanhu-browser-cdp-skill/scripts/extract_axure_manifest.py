@@ -11,6 +11,8 @@ import json
 import sys
 import urllib.request
 
+from lanhu_guard import require_lanhu_url, require_lanhu_ws_target
+
 try:
     import websocket
 except ImportError:
@@ -22,6 +24,7 @@ AXURE_FILE_HOST = "https://axure-file.lanhuapp.com/"
 
 
 def cdp_eval(ws_url, expression):
+    require_lanhu_ws_target(ws_url)
     ws = websocket.create_connection(ws_url, timeout=15)
     try:
         ws.send(json.dumps({
@@ -45,6 +48,7 @@ def cdp_eval(ws_url, expression):
 
 
 def fetch_json(url):
+    require_lanhu_url(url, "manifest URL")
     with urllib.request.urlopen(url, timeout=20) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
@@ -113,6 +117,7 @@ def main():
     if not json_url:
         print("NO_JSON_URL: latest version has no jsonUrl", file=sys.stderr)
         sys.exit(1)
+    require_lanhu_url(json_url, "latest version jsonUrl")
 
     manifest = fetch_json(json_url)
     rows = flatten_sitemap(manifest.get("sitemap", {}).get("rootNodes", []), manifest.get("pages", {}))

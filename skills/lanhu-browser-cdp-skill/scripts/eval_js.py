@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """CDP 执行 JS 并返回结果"""
 import json, sys
+from lanhu_guard import require_lanhu_ws_target
+
 try:
     import websocket
 except ImportError:
@@ -14,12 +16,18 @@ if len(sys.argv) < 3:
 ws_url = sys.argv[1]
 js_expr = sys.argv[2]
 
-ws = websocket.create_connection(ws_url, timeout=15)
-
-ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {
-    "expression": js_expr
-}}))
-resp = json.loads(ws.recv())
-result = resp.get("result", {}).get("result", {}).get("value", "")
-print(result if result else "")
-ws.close()
+try:
+    require_lanhu_ws_target(ws_url)
+    ws = websocket.create_connection(ws_url, timeout=15)
+    try:
+        ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {
+            "expression": js_expr
+        }}))
+        resp = json.loads(ws.recv())
+        result = resp.get("result", {}).get("result", {}).get("value", "")
+        print(result if result else "")
+    finally:
+        ws.close()
+except Exception as exc:
+    print(f"LANHU_ONLY_ACCESS_DENIED: {exc}", file=sys.stderr)
+    sys.exit(1)
