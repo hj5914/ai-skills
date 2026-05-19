@@ -7,6 +7,7 @@
 ## 用途
 
 - 检测本地浏览器 CDP 端口是否可用。
+- 在 CDP 浏览器中打开或复用用户给出的蓝湖链接。
 - 列出浏览器中已打开的页面标签。
 - 从蓝湖页面状态中提取 Axure manifest。
 - 获取 Axure 页面树、页面 HTML、dataJs、mapping 资源地址。
@@ -99,10 +100,11 @@ Windows Edge：
 
 ```bash
 python3 scripts/check_cdp.py
+python3 scripts/open_url.py "https://lanhuapp.com/xxx"
 python3 scripts/list_tabs.py lanhuapp
 ```
 
-如果 CDP 可用，`list_tabs.py` 会打印匹配页面的 WebSocket URL。完整使用流程见 [SKILL.md](SKILL.md)。
+如果 CDP 可用，`open_url.py` 会打开或复用页面并打印 WebSocket URL；`list_tabs.py` 会打印匹配页面的 WebSocket URL。完整使用流程见 [SKILL.md](SKILL.md)。
 
 ## 文件说明
 
@@ -115,6 +117,9 @@ requirements.txt
 
 scripts/check_cdp.py
   检测 CDP 端口。
+
+scripts/open_url.py
+  在 CDP 浏览器中打开或复用 URL。
 
 scripts/list_tabs.py
   列出浏览器页面标签。
