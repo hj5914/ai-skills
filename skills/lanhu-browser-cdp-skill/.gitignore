@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+venv/
+env/
+
+# Local screenshots and temporary captures
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+
+# Local editor/project state
+.idea/
+.vscode/

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lanhu Browser CDP"
+  short_description: "Inspect Lanhu pages through browser CDP"
+  default_prompt: "Use this skill to inspect Lanhu or Axure design/prototype pages through a local Chrome or Edge remote debugging port, including listing tabs, extracting manifests, evaluating JavaScript, and taking screenshots."
