@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitLab Internal Access"
+  short_description: "Access GitLab via the fixed GITLAB_TOKEN environment variable."
+  default_prompt: "Use the fixed GITLAB_TOKEN environment variable to access a provided GitLab base URL for read-only project, repository, file, MR, pipeline, job, group, or user inspection."

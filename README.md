@@ -24,6 +24,14 @@ Lanhu / Axure 页面调试和提取 skill。
 
 路径：`skills/lanhu-browser-cdp-skill/`
 
+### gitlab-internal-access
+
+内网 GitLab 访问 skill。
+
+它通过 `GITLAB_TOKEN` 访问用户对话、AI 上下文、环境变量或其他方式提供的 GitLab base URL，用于只读查询 GitLab 项目、仓库、文件、MR、pipeline、job、group 或用户信息。group path 和 project path 不是必需项，只在访问对应资源接口时需要。
+
+路径：`skills/gitlab-internal-access/`
+
 ## 目录结构
 
 ```text
@@ -34,6 +42,10 @@ skills/
   business-delivery-orchestrator/
     SKILL.md
     references/
+    agents/
+  gitlab-internal-access/
+    SKILL.md
+    scripts/
     agents/
   lanhu-browser-cdp-skill/
     SKILL.md
@@ -54,6 +66,12 @@ python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-githu
 python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
   --repo hj5914/ai-skills \
   --path skills/lanhu-browser-cdp-skill
+```
+
+```bash
+python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
+  --repo hj5914/ai-skills \
+  --path skills/gitlab-internal-access
 ```
 
 `lanhu-browser-cdp-skill` 还需要安装自己的 Python 依赖，详见它的 README。
