@@ -50,6 +50,7 @@ Use this file to choose verification depth, decide when to escalate review rigor
    - Identify 3 potential failure modes (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
    - Document how they are addressed or why they are acceptable risks.
    - For M tasks, combine both stages into a single self-review pass.
+   - Prefer `templates/reviewer-spec-prompt-template.md` for Stage 1 and `templates/reviewer-quality-prompt-template.md` for Stage 2 so the two reviews do not collapse into one generic pass.
 
 6. Review:
    - Use self-review for small/medium changes.

@@ -13,6 +13,7 @@ if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
 from core.handoff import render_handoff
+from core.contract import render_contract
 from core.memory import parse_memory_entry, render_memory_entry
 from core.scan import run_impact_scan
 from core.state import default_state, load_state, normalize_state
@@ -165,6 +166,28 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("src/consumer.ts", result["matched_files"])
         self.assertIn("src/notes.md", result["matched_files"])
         self.assertEqual(result["recommended_size"], "M")
+
+    def test_render_contract_supports_what_and_how_passes(self) -> None:
+        what = render_contract(
+            objective="Add bulk archive",
+            size="L",
+            risk="medium",
+            mode="what",
+            surfaces=["ui", "backend"],
+        )
+        how = render_contract(
+            objective="Add bulk archive",
+            size="L",
+            risk="medium",
+            mode="how",
+            surfaces=["ui", "backend"],
+            constraints_detected=["Script test: pytest"],
+        )
+
+        self.assertIn("Delivery Contract - WHAT", what)
+        self.assertIn("Shared behavior is intentionally deferred to the HOW pass.", what)
+        self.assertIn("Delivery Contract - HOW", how)
+        self.assertIn("Script test: pytest", how)
 
 
 if __name__ == "__main__":

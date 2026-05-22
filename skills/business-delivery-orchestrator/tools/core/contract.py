@@ -31,6 +31,10 @@ def render_contract(
     surfaces: list[str],
     constraints_detected: list[str] | None = None,
 ) -> str:
+    if mode == "what":
+        return _render_what_contract(objective=objective, size=size, risk=risk, surfaces=surfaces)
+    if mode == "how":
+        return _render_how_contract(objective=objective, size=size, risk=risk, surfaces=surfaces, constraints_detected=constraints_detected)
     if mode == "full" or size in {"L", "XL"}:
         return _render_full_contract(
             objective=objective,
@@ -46,6 +50,61 @@ def render_contract(
         surfaces=surfaces,
         constraints_detected=constraints_detected,
     )
+
+
+def _render_what_contract(*, objective: str, size: str, risk: str, surfaces: list[str]) -> str:
+    template = load_template_code_block("full-delivery-contract-template.md")
+    template = fill_once(template, "## Delivery Contract", "## Delivery Contract - WHAT")
+    template = fill_once(template, "Goal:\n- ", f"Goal:\n- {objective or ''}")
+    template = replace_section_placeholder(template, "Non-goals:", list_block(_non_goal_defaults(surfaces)))
+    template = replace_section_placeholder(template, "Constraints (Constitution):", list_block(_constraints_defaults(surfaces)))
+    template = fill_once(template, "- Actor:", f"- Actor: {'End user' if 'ui' in surfaces else 'API or service caller'}")
+    template = fill_once(template, "- Trigger:", f"- Trigger: {objective or 'Requested feature change'}")
+    template = fill_once(template, "- Success path:", f"- Success path: {_success_path(surfaces)}")
+    template = fill_once(template, "- Failure states:", f"- Failure states: {_failure_states(surfaces)}")
+    template = fill_once(template, "- Empty/loading states:", f"- Empty/loading states: {_empty_loading_defaults(surfaces)}")
+    template = replace_section_placeholder(template, "Acceptance criteria:", checklist_block(_acceptance_defaults(surfaces)[:3]))
+    template = replace_section_placeholder(template, "Risks and assumptions:", list_block([f"size={size}", f"risk={risk}", f"surfaces={', '.join(surfaces) if surfaces else 'none'}"]))
+    template = replace_section_placeholder(template, "Data and API:", "- Shared behavior is intentionally deferred to the HOW pass.\n- ")
+    template = replace_section_placeholder(template, "Frontend contract:", "- Shared behavior is intentionally deferred to the HOW pass.\n- ")
+    template = replace_section_placeholder(template, "Backend contract:", "- Shared behavior is intentionally deferred to the HOW pass.\n- ")
+    template = replace_section_placeholder(template, "Verification plan:", "- Shared behavior is intentionally deferred to the HOW pass.\n- ")
+    return template
+
+
+def _render_how_contract(
+    *, objective: str, size: str, risk: str, surfaces: list[str], constraints_detected: list[str] | None = None
+) -> str:
+    template = load_template_code_block("full-delivery-contract-template.md")
+    template = fill_once(template, "## Delivery Contract", "## Delivery Contract - HOW")
+    template = fill_once(template, "Goal:\n- ", f"Goal:\n- {objective or ''}")
+    template = replace_section_placeholder(template, "Non-goals:", list_block(_non_goal_defaults(surfaces)))
+    template = replace_section_placeholder(
+        template,
+        "Constraints (Constitution):",
+        list_block(_constraints_defaults(surfaces, constraints_detected=constraints_detected)),
+    )
+    template = fill_once(template, "- Actor:", f"- Actor: {'End user' if 'ui' in surfaces else 'API or service caller'}")
+    template = fill_once(template, "- Trigger:", f"- Trigger: {objective or 'Requested feature change'}")
+    template = fill_once(template, "- Success path:", f"- Success path: {_success_path(surfaces)}")
+    template = fill_once(template, "- Failure states:", f"- Failure states: {_failure_states(surfaces)}")
+    template = fill_once(template, "- Empty/loading states:", f"- Empty/loading states: {_empty_loading_defaults(surfaces)}")
+    template = fill_once(template, "- Inputs:", f"- Inputs: {_data_inputs(surfaces)}")
+    template = fill_once(template, "- Outputs:", f"- Outputs: {_data_outputs(surfaces)}")
+    template = fill_once(template, "- Validation:", f"- Validation: {_validation_defaults(surfaces)}")
+    template = fill_once(template, "- Error behavior:", f"- Error behavior: {_error_behavior_defaults(surfaces)}")
+    template = fill_once(template, "- Permissions:", f"- Permissions: {'Follow the existing access-control model and denial behavior.' if 'auth' in surfaces else 'No new permission model assumed.'}")
+    template = fill_once(template, "- Views/components:", f"- Views/components: {'Reuse existing screens/components that expose the changed flow.' if 'ui' in surfaces else 'No frontend surface change planned.'}")
+    template = fill_once(template, "- State transitions:", f"- State transitions: {'Keep visible state, loading, empty, and failure transitions aligned with the contract.' if 'ui' in surfaces else 'No client-side state transition change planned.'}")
+    template = fill_once(template, "- Accessibility:", f"- Accessibility: {_accessibility_defaults(surfaces)}")
+    template = fill_once(template, "- Responsive behavior:", f"- Responsive behavior: {_responsive_defaults(surfaces)}")
+    template = fill_once(template, "- Endpoints/functions:", f"- Endpoints/functions: {'Update the relevant endpoint/service boundary without widening scope.' if {'backend', 'api', 'auth', 'data'} & set(surfaces) else 'No backend endpoint or service contract change planned.'}")
+    template = fill_once(template, "- Persistence:", f"- Persistence: {'Preserve compatibility of persisted data and rollback reasoning.' if 'data' in surfaces else 'No persistence schema change planned.'}")
+    template = fill_once(template, "- Side effects:", f"- Side effects: {'Make external calls and notifications explicit in the implementation boundary.' if 'external' in surfaces else 'No new external side effects planned.'}")
+    template = fill_once(template, "- Observability:", f"- Observability: {_observability_defaults(surfaces)}")
+    template = replace_section_placeholder(template, "Acceptance criteria:", checklist_block(_acceptance_defaults(surfaces)[:3]))
+    template = replace_section_placeholder(template, "Risks and assumptions:", list_block([f"size={size}", f"risk={risk}", f"surfaces={', '.join(surfaces) if surfaces else 'none'}"]))
+    return template
 
 
 def _render_lightweight_contract(

@@ -131,6 +131,54 @@ def cmd_contract(args: argparse.Namespace) -> int:
     )
 
 
+def cmd_contract_what(args: argparse.Namespace) -> int:
+    state_path = args.state or Path.cwd() / STATE_FILE_NAME
+    state = load_state(state_path)
+    contract = render_contract(
+        objective=state.get("objective", ""),
+        size=state.get("size", "M"),
+        risk=state.get("risk", "medium"),
+        mode="what",
+        surfaces=state.get("surfaces", []),
+        constraints_detected=state.get("constraints_detected", []),
+    )
+    contract_path = args.output or Path.cwd() / "bdo.contract.what.md"
+    _write_text(contract_path, contract)
+    return _emit(
+        args,
+        command="contract-what",
+        state_path=state_path,
+        output_path=contract_path,
+        data={"mode": "what", "size": state.get("size", ""), "risk": state.get("risk", ""), "surfaces": state.get("surfaces", [])},
+    )
+
+
+def cmd_contract_how(args: argparse.Namespace) -> int:
+    state_path = args.state or Path.cwd() / STATE_FILE_NAME
+    state = load_state(state_path)
+    _ensure_contract_allowed(state, "full")
+    contract = render_contract(
+        objective=state.get("objective", ""),
+        size=state.get("size", "M"),
+        risk=state.get("risk", "medium"),
+        mode="how",
+        surfaces=state.get("surfaces", []),
+        constraints_detected=state.get("constraints_detected", []),
+    )
+    contract_path = args.output or Path.cwd() / "bdo.contract.how.md"
+    _write_text(contract_path, contract)
+    state["contract_path"] = str(contract_path)
+    set_phase(state, "contract")
+    save_state(state_path, state)
+    return _emit(
+        args,
+        command="contract-how",
+        state_path=state_path,
+        output_path=contract_path,
+        data={"mode": "how", "size": state.get("size", ""), "risk": state.get("risk", ""), "surfaces": state.get("surfaces", [])},
+    )
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
@@ -303,6 +351,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mode", choices=["lightweight", "full"], default="lightweight")
     p.add_argument("--output", type=Path)
     p.set_defaults(func=cmd_contract)
+
+    p = sub.add_parser("contract-what")
+    p.add_argument("--output", type=Path)
+    p.set_defaults(func=cmd_contract_what)
+
+    p = sub.add_parser("contract-how")
+    p.add_argument("--output", type=Path)
+    p.set_defaults(func=cmd_contract_how)
 
     p = sub.add_parser("verify")
     p.add_argument("--output", type=Path)

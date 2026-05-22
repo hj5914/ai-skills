@@ -195,6 +195,10 @@ Needs primary integration:
 
 For read-only review or exploration, replace "Changed files" with "Files inspected".
 
+For reviewer-specific work, prefer the dedicated prompt templates:
+- `templates/reviewer-spec-prompt-template.md` for Stage 1 spec-compliance review
+- `templates/reviewer-quality-prompt-template.md` for Stage 2 code-quality review
+
 ## Context Budget
 
 Use the smallest process that preserves correctness:
@@ -232,7 +236,7 @@ If ECC tools or agents are installed, use them as implementation mechanisms, but
 - Read `references/delegation-matrix.md` when deciding whether to use subagents, external agents, worktrees, or role-based self-review.
 - Read `references/delivery-contract.md` when requirements need a shared contract before implementation.
 - Read `references/verification-gates.md` when selecting verification depth, escalation triggers, or stop conditions.
-- Reuse `templates/lightweight-contract-template.md`, `templates/full-delivery-contract-template.md`, `templates/handoff-gate-checklist-template.md`, `templates/handoff-template.md`, and `templates/memory-entry-template.md` instead of rewriting these artifacts from scratch.
+- Reuse `templates/lightweight-contract-template.md`, `templates/full-delivery-contract-template.md`, `templates/reviewer-spec-prompt-template.md`, `templates/reviewer-quality-prompt-template.md`, `templates/handoff-gate-checklist-template.md`, `templates/handoff-template.md`, and `templates/memory-entry-template.md` instead of rewriting these artifacts from scratch.
 - Read `examples/minimal-feature-delivery-example.md` when a user or teammate needs a concise end-to-end example of how this skill should be applied.
 
 ## Bundled CLI
@@ -244,6 +248,7 @@ This skill includes a local helper at `tools/bdo.py`. Use it when structured art
 - `python3 tools/bdo.py phase plan|implement|review|verify` explicitly advances the tracked workflow phase when you want state to mirror the documented progress block
 - `python3 tools/bdo.py scan --target billing --target InvoiceTable` records a heuristic impact scan for sizing using path, import/use, and text fallback matches
 - `python3 tools/bdo.py mine` records lightweight repo constraints from supported config files
+- `python3 tools/bdo.py contract-what` and `contract-how` generate separate WHAT/HOW contract passes for L/XL work
 - `python3 tools/bdo.py review --kind spec|quality --status DONE|DONE_WITH_CONCERNS|NEEDS_CONTEXT|BLOCKED` records a lightweight adversarial review pass for later handoff reuse
 - `python3 tools/bdo.py contract`, `verify`, `handoff`, `memory`, `delta`, `status` generate or inspect workflow artifacts
 - Contract generation pre-fills surface-aware defaults from state and detected constraints, `delta` writes a structural summary, and state writes are atomic so repeated CLI calls do not leave half-written JSON
