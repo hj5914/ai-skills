@@ -19,6 +19,7 @@
 - `examples/minimal-feature-delivery-example.md`：最小完整示例流程
 - `templates/`：contract、handoff、`MEMORY.md` 和 gate checklist 模板
 - `references/`：选型规则、契约规则、验证门禁和 stop conditions
+- `tools/bdo.py`：本地半自动 CLI，可生成 state、contract、verify、handoff 和 memory 产物
 
 ## 文件索引
 
@@ -29,11 +30,17 @@ SKILL.md
 references/
   规则文档：delivery-contract.md、verification-gates.md、delegation-matrix.md。
 
+schema/
+  `.bdo.state.json` 的正式结构定义。
+
 templates/
   可复用产物：contract、handoff、gate checklist、MEMORY entry。
 
 examples/
   最小端到端示例流程。
+
+tools/
+  本地 CLI 入口 `bdo.py` 及其 `core/` 辅助模块。
 
 agents/openai.yaml
   Codex UI 元数据。
@@ -46,6 +53,7 @@ agents/openai.yaml
 3. `L/XL` 任务复用 `templates/full-delivery-contract-template.md`，必要时参考 `references/delivery-contract.md`。
 4. 交付时复用 `templates/handoff-gate-checklist-template.md`、`templates/handoff-template.md` 和 `templates/memory-entry-template.md`。
 5. 不熟悉时先看 `examples/minimal-feature-delivery-example.md`。
+6. 如果想减少手工复制模板，可直接用 `python3 tools/bdo.py` 驱动本地产物生成；`classify` 支持重复传入 `--surface` 标记改动面，`verify` 与 `handoff` 会共享 state 中的验证摘要。
 
 ## 备注
 

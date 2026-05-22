@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BDO State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "objective",
+    "size",
+    "risk",
+    "phase",
+    "contract_path",
+    "verification_path",
+    "handoff_path",
+    "surfaces",
+    "verification_summary",
+    "delta",
+    "memory"
+  ],
+  "properties": {
+    "objective": {
+      "type": "string"
+    },
+    "size": {
+      "type": "string",
+      "enum": ["XS", "S", "M", "L", "XL"]
+    },
+    "risk": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["init", "classify", "contract", "verify", "deliver", "memory"]
+    },
+    "contract_path": {
+      "type": "string"
+    },
+    "verification_path": {
+      "type": "string"
+    },
+    "handoff_path": {
+      "type": "string"
+    },
+    "surfaces": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "copy",
+          "config",
+          "ui",
+          "backend",
+          "api",
+          "utility",
+          "data",
+          "auth",
+          "external",
+          "performance"
+        ]
+      }
+    },
+    "verification_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checks", "escalation", "stop_conditions"],
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "escalation": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "stop_conditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "delta": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["added", "removed", "changed", "impact"],
+        "properties": {
+          "added": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "removed": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "changed": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "impact": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "memory": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

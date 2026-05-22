@@ -4,6 +4,8 @@
 
 目前目标是兼容 Codex、Claude Code、Gemini 以及类似的 agent harness。每个 skill 都保持自包含，后续可以单独复制、安装或发布。
 
+`business-delivery-orchestrator` skill 内还包含一个零依赖的本地辅助 CLI，用于半自动生成 contract、verify、handoff 和 `MEMORY.md` 产物。
+
 ## 当前 Skills
 
 ### business-delivery-orchestrator
@@ -44,6 +46,7 @@ skills/
     examples/
     references/
     templates/
+    tools/
     agents/
   gitlab-internal-access/
     SKILL.md
@@ -52,6 +55,22 @@ skills/
   lanhu-browser-cdp-skill/
     SKILL.md
     scripts/
+```
+
+## BDO CLI
+
+本地辅助命令入口：`python3 skills/business-delivery-orchestrator/tools/bdo.py`
+
+常用流程：
+
+```bash
+python3 skills/business-delivery-orchestrator/tools/bdo.py init --objective "Add bulk archive"
+python3 skills/business-delivery-orchestrator/tools/bdo.py classify --size M --risk medium
+python3 skills/business-delivery-orchestrator/tools/bdo.py contract
+python3 skills/business-delivery-orchestrator/tools/bdo.py verify
+python3 skills/business-delivery-orchestrator/tools/bdo.py handoff
+python3 skills/business-delivery-orchestrator/tools/bdo.py memory
+python3 skills/business-delivery-orchestrator/tools/bdo.py status
 ```
 
 ## 安装示例
