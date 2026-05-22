@@ -15,7 +15,7 @@ if str(TOOLS_DIR) not in sys.path:
 
 from core.handoff import render_handoff
 from core.contract import render_contract
-from core.memory import render_memory_entry
+from core.memory import parse_memory_entry, render_memory_entry
 from core.state import (
     STATE_FILE_NAME,
     default_state,
@@ -123,7 +123,11 @@ def cmd_contract(args: argparse.Namespace) -> int:
 def cmd_verify(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
-    state["verification_summary"] = build_verification_summary(state)
+    state["verification_summary"] = build_verification_summary(
+        state,
+        evidence=args.evidence or [],
+        gaps=args.gap or [],
+    )
     set_phase(state, "verify")
     report = render_verify(state)
     report_path = args.output or Path.cwd() / "bdo.verify.md"
@@ -156,6 +160,9 @@ def cmd_handoff(args: argparse.Namespace) -> int:
         data={
             "verification_summary": state.get("verification_summary", {}),
             "latest_delta": state.get("delta", [])[-1] if state.get("delta") else None,
+            "latest_delta_summary": state.get("delta", [])[-1].get("summary", "") if state.get("delta") else "",
+            "verification_evidence": state.get("verification_summary", {}).get("evidence", []),
+            "verification_gaps": state.get("verification_summary", {}).get("gaps", []),
         },
     )
 
@@ -163,7 +170,13 @@ def cmd_handoff(args: argparse.Namespace) -> int:
 def cmd_memory(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
-    entry = render_memory_entry(state)
+    entry = render_memory_entry(
+        state,
+        context=args.context,
+        lesson=args.lesson,
+        rule=args.rule,
+        evidence=args.evidence,
+    )
     memory_path = args.output or Path.cwd() / "MEMORY.md"
     previous = memory_path.read_text(encoding="utf-8") if memory_path.exists() else ""
     combined = previous.rstrip() + ("\n\n" if previous.strip() else "") + entry.strip() + "\n"
@@ -176,18 +189,20 @@ def cmd_memory(args: argparse.Namespace) -> int:
         command="memory",
         state_path=state_path,
         output_path=memory_path,
-        data={"entry_title": entry.splitlines()[0] if entry.strip() else ""},
+        data=parse_memory_entry(entry),
     )
 
 
 def cmd_delta(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
+    summary = args.summary or _summarize_delta(args.added or [], args.removed or [], args.changed or [], args.impact or "")
     delta = {
         "added": args.added or [],
         "removed": args.removed or [],
         "changed": args.changed or [],
         "impact": args.impact or "",
+        "summary": summary,
     }
     state.setdefault("delta", []).append(delta)
     save_state(state_path, state)
@@ -225,6 +240,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("verify")
     p.add_argument("--output", type=Path)
+    p.add_argument("--evidence", action="append", help="Actual checks or commands that ran")
+    p.add_argument("--gap", action="append", help="Known coverage gaps or skipped checks")
     p.set_defaults(func=cmd_verify)
 
     p = sub.add_parser("handoff")
@@ -233,6 +250,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("memory")
     p.add_argument("--output", type=Path)
+    p.add_argument("--context")
+    p.add_argument("--lesson")
+    p.add_argument("--rule")
+    p.add_argument("--evidence")
     p.set_defaults(func=cmd_memory)
 
     p = sub.add_parser("delta")
@@ -240,6 +261,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--removed", action="append")
     p.add_argument("--changed", action="append")
     p.add_argument("--impact")
+    p.add_argument("--summary")
     p.set_defaults(func=cmd_delta)
 
     return parser
@@ -253,6 +275,19 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+
+def _summarize_delta(added: list[str], removed: list[str], changed: list[str], impact: str) -> str:
+    parts = []
+    if changed:
+        parts.append(f"changed {', '.join(changed[:2])}")
+    if added:
+        parts.append(f"added {', '.join(added[:2])}")
+    if removed:
+        parts.append(f"removed {', '.join(removed[:2])}")
+    if impact:
+        parts.append(impact)
+    return "; ".join(parts) if parts else "No delta recorded"
 
 
 if __name__ == "__main__":

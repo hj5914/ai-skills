@@ -242,7 +242,7 @@ This skill includes a local helper at `tools/bdo.py`. Use it when structured art
 - `python3 tools/bdo.py init --objective "..."` initializes `.bdo.state.json`
 - `python3 tools/bdo.py classify --size M --risk medium --surface ui --surface api` records task shape and touched surfaces
 - `python3 tools/bdo.py contract`, `verify`, `handoff`, `memory`, `delta`, `status` generate or inspect workflow artifacts
-- Contract generation pre-fills surface-aware defaults from state, and state writes are atomic so repeated CLI calls do not leave half-written JSON
-- `memory` appends the generated entry back into state, and `handoff` reuses the latest memory and verification context
+- Contract generation pre-fills surface-aware defaults from state, `delta` writes a structural summary, and state writes are atomic so repeated CLI calls do not leave half-written JSON
+- `verify` supports `--evidence` and `--gap`, `memory` supports `--context` / `--lesson` / `--rule` / `--evidence`, and `handoff` reuses the latest delta plus verification evidence instead of recomputing from scratch
 - Add `--json` when another agent or script should consume the result programmatically
 - State shape is documented in `schema/bdo-state.schema.json`

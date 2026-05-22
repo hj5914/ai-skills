@@ -36,6 +36,8 @@ def default_state() -> dict:
             "checks": [],
             "escalation": [],
             "stop_conditions": [],
+            "evidence": [],
+            "gaps": [],
         },
         "delta": [],
         "memory": [],
@@ -51,6 +53,7 @@ def load_state(path: Path) -> dict:
         raise ValueError(
             f"BDO state file is invalid JSON at {path}; rerun `init` or remove the corrupted file"
         ) from exc
+    state = normalize_state(state)
     validate_state(state)
     return state
 
@@ -68,6 +71,36 @@ def save_state(path: Path, state: dict) -> None:
 def set_phase(state: dict, phase: str) -> dict:
     state["phase"] = phase
     return state
+
+
+def normalize_state(state: dict) -> dict:
+    if not isinstance(state, dict):
+        return state
+
+    merged = default_state()
+    merged.update(state)
+
+    summary = state.get("verification_summary", {})
+    merged_summary = default_state()["verification_summary"]
+    if isinstance(summary, dict):
+        merged_summary.update(summary)
+    merged["verification_summary"] = merged_summary
+
+    normalized_delta = []
+    for item in state.get("delta", []):
+        if not isinstance(item, dict):
+            normalized_delta.append(item)
+            continue
+        normalized_item = {
+            "added": item.get("added", []),
+            "removed": item.get("removed", []),
+            "changed": item.get("changed", []),
+            "impact": item.get("impact", ""),
+            "summary": item.get("summary", ""),
+        }
+        normalized_delta.append(normalized_item)
+    merged["delta"] = normalized_delta
+    return merged
 
 
 def validate_state(state: dict) -> None:
@@ -109,9 +142,11 @@ def validate_state(state: dict) -> None:
     if invalid_surfaces:
         raise ValueError(f"BDO state surfaces contain invalid values: {invalid_surfaces}")
     summary = state["verification_summary"]
-    if set(summary.keys()) != {"checks", "escalation", "stop_conditions"}:
-        raise ValueError("BDO state verification_summary must contain checks, escalation, stop_conditions")
-    for key in ("checks", "escalation", "stop_conditions"):
+    if set(summary.keys()) != {"checks", "escalation", "stop_conditions", "evidence", "gaps"}:
+        raise ValueError(
+            "BDO state verification_summary must contain checks, escalation, stop_conditions, evidence, gaps"
+        )
+    for key in ("checks", "escalation", "stop_conditions", "evidence", "gaps"):
         if not isinstance(summary[key], list) or not all(isinstance(v, str) for v in summary[key]):
             raise ValueError(f"BDO state verification_summary.{key} must be a list of strings")
 
@@ -125,6 +160,8 @@ def validate_state(state: dict) -> None:
                 raise ValueError(f"BDO state delta[{idx}].{key} must be a list of strings")
         if "impact" not in item or not isinstance(item["impact"], str):
             raise ValueError(f"BDO state delta[{idx}].impact must be a string")
+        if "summary" not in item or not isinstance(item["summary"], str):
+            raise ValueError(f"BDO state delta[{idx}].summary must be a string")
 
     if not all(isinstance(v, str) for v in state["memory"]):
         raise ValueError("BDO state memory must be a list of strings")

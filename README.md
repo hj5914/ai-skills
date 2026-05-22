@@ -66,10 +66,11 @@ skills/
 ```bash
 python3 skills/business-delivery-orchestrator/tools/bdo.py init --objective "Add bulk archive"
 python3 skills/business-delivery-orchestrator/tools/bdo.py classify --size M --risk medium
+python3 skills/business-delivery-orchestrator/tools/bdo.py delta --changed skills/foo.py --impact "UI copy updated"
 python3 skills/business-delivery-orchestrator/tools/bdo.py contract
-python3 skills/business-delivery-orchestrator/tools/bdo.py verify
+python3 skills/business-delivery-orchestrator/tools/bdo.py verify --evidence "pytest tests/foo_test.py" --gap "no e2e env"
 python3 skills/business-delivery-orchestrator/tools/bdo.py handoff
-python3 skills/business-delivery-orchestrator/tools/bdo.py memory
+python3 skills/business-delivery-orchestrator/tools/bdo.py memory --lesson "Guard missing states" --rule "Always cover empty state"
 python3 skills/business-delivery-orchestrator/tools/bdo.py status
 ```
 

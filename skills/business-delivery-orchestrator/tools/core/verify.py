@@ -2,13 +2,15 @@ from __future__ import annotations
 
 
 def render_verify(state: dict) -> str:
-    summary = build_verification_summary(state)
+    summary = state.get("verification_summary") or build_verification_summary(state)
     size = state.get("size", "")
     risk = state.get("risk", "")
     surfaces = state.get("surfaces", [])
     checks = summary["checks"]
     escalation = summary["escalation"]
     stop_conditions = summary["stop_conditions"]
+    evidence = summary.get("evidence", [])
+    gaps = summary.get("gaps", [])
 
     return f"""# Verification Report
 
@@ -18,8 +20,14 @@ State:
 - risk={risk}
 - surfaces={", ".join(surfaces) if surfaces else "none"}
 
-Checks:
+Recommended checks:
 {_as_bullets(checks)}
+
+Evidence collected:
+{_as_bullets(evidence or ["No execution evidence recorded yet"])}
+
+Coverage gaps:
+{_as_bullets(gaps or ["No explicit gaps recorded; add one if verification is partial"])}
 
 Escalation:
 {_as_bullets(escalation)}
@@ -28,11 +36,12 @@ Stop conditions:
 {_as_bullets(stop_conditions)}
 
 Notes:
-- Add concrete repo-specific commands here when the project is wired to tests or dev servers.
+- Use `--evidence` for commands or manual checks that actually ran.
+- Use `--gap` for skipped validation, missing environments, or unresolved coverage holes.
 """
 
 
-def build_verification_summary(state: dict) -> dict:
+def build_verification_summary(state: dict, *, evidence: list[str] | None = None, gaps: list[str] | None = None) -> dict:
     size = state.get("size", "")
     risk = state.get("risk", "")
     surfaces = state.get("surfaces", [])
@@ -40,6 +49,8 @@ def build_verification_summary(state: dict) -> dict:
         "checks": _checks_for_surfaces(surfaces),
         "escalation": _escalation_triggers(size=size, risk=risk, surfaces=surfaces),
         "stop_conditions": _stop_conditions(size=size, risk=risk, surfaces=surfaces),
+        "evidence": evidence or [],
+        "gaps": gaps or [],
     }
 
 
