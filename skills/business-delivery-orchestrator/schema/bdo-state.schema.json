@@ -57,6 +57,8 @@
           "utility",
           "data",
           "auth",
+          "payment",
+          "migration",
           "external",
           "performance"
         ]

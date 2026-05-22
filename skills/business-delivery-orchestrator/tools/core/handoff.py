@@ -3,6 +3,8 @@ from __future__ import annotations
 from core.memory import parse_memory_entry
 from core.templates import list_block, load_template_code_block, replace_section_placeholder
 
+COMPLETED_REVIEW_STATUSES = {"DONE", "DONE_WITH_CONCERNS"}
+
 
 def _delta_summary(delta: dict) -> str:
     parts = []
@@ -27,7 +29,6 @@ def _delta_summary(delta: dict) -> str:
 def render_handoff(state: dict) -> str:
     template = load_template_code_block("handoff-template.md")
     summary = state.get("verification_summary", {})
-    checks = summary.get("checks", [])
     evidence = summary.get("evidence", [])
     gaps = summary.get("gaps", [])
     escalation = summary.get("escalation", [])
@@ -64,6 +65,8 @@ def render_handoff(state: dict) -> str:
     for review in reviews[-2:]:
         if not isinstance(review, dict):
             continue
+        if review.get("status", "") not in COMPLETED_REVIEW_STATUSES:
+            continue
         kind = review.get("kind", "review")
         status = review.get("status", "")
         focus = review.get("focus", "")
@@ -74,14 +77,14 @@ def render_handoff(state: dict) -> str:
         if note:
             review_notes.append(note)
     verified_entries = []
-    verified_entries.extend(checks[:4])
     verified_entries.extend(evidence[:4])
     verified_entries.extend(review_notes[:4])
+    if not verified_entries:
+        verified_entries = ["No explicit verification evidence recorded."]
 
     if changed:
         template = replace_section_placeholder(template, "Changed:", list_block(changed))
-    if verified_entries:
-        template = replace_section_placeholder(template, "Verified:", list_block(verified_entries))
+    template = replace_section_placeholder(template, "Verified:", list_block(verified_entries))
     not_verified = gaps[:2] if gaps else ["No explicit gaps recorded"]
     template = replace_section_placeholder(template, "Not verified:", list_block(not_verified))
     template = replace_section_placeholder(template, "Lessons Learned (Update MEMORY.md):", list_block(lessons))

@@ -19,6 +19,8 @@ SURFACE_BEHAVIOR = {
     "config": "Keep configuration changes scoped and compatible with existing defaults.",
     "utility": "Protect shared callers from unintended regressions.",
     "copy": "Keep wording changes consistent with the existing UX tone and context.",
+    "payment": "Preserve payment correctness, idempotency, and explicit success/failure behavior.",
+    "migration": "Preserve migration safety, compatibility, and rollback reasoning.",
 }
 
 
@@ -192,7 +194,7 @@ def _render_full_contract(
     error_behavior = _error_behavior_defaults(surfaces)
     permissions = (
         "Follow the existing access-control model and denial behavior."
-        if "auth" in surfaces
+        if "auth" in surfaces or "payment" in surfaces
         else "No new permission model assumed."
     )
     frontend_views = (
@@ -207,12 +209,12 @@ def _render_full_contract(
     )
     backend_endpoints = (
         "Update the relevant endpoint/service boundary without widening scope."
-        if {"backend", "api", "auth", "data"} & set(surfaces)
+        if {"backend", "api", "auth", "data", "payment", "migration"} & set(surfaces)
         else "No backend endpoint or service contract change planned."
     )
     backend_persistence = (
         "Preserve compatibility of persisted data and rollback reasoning."
-        if "data" in surfaces
+        if {"data", "migration"} & set(surfaces)
         else "No persistence schema change planned."
     )
     backend_side_effects = (
@@ -227,6 +229,10 @@ def _render_full_contract(
         risks.append("permission-denial behavior must be verified explicitly")
     if "data" in surfaces:
         risks.append("data compatibility and rollback path need review")
+    if "payment" in surfaces:
+        risks.append("payment success, failure, and duplicate-submission behavior must be verified explicitly")
+    if "migration" in surfaces:
+        risks.append("migration compatibility and rollback path need review")
 
     template = replace_section_placeholder(template, "Non-goals:", list_block(_non_goal_defaults(surfaces)))
     template = replace_section_placeholder(

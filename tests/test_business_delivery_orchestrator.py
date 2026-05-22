@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import tempfile
@@ -17,8 +18,16 @@ from core.contract import render_contract
 from core.memory import parse_memory_entry, render_memory_entry
 from core.quiz import build_clarify_quiz, clarify_warning
 from core.scan import run_impact_scan
-from core.state import default_state, load_state, normalize_state
+from core.state import default_state, load_state, normalize_state, validate_state
 from core.templates import replace_section_placeholder
+
+BDO_SPEC = importlib.util.spec_from_file_location("bdo_cli", TOOLS_DIR / "bdo.py")
+assert BDO_SPEC and BDO_SPEC.loader
+BDO_MODULE = importlib.util.module_from_spec(BDO_SPEC)
+BDO_SPEC.loader.exec_module(BDO_MODULE)
+_ensure_contract_allowed = BDO_MODULE._ensure_contract_allowed
+_ensure_contract_exists = BDO_MODULE._ensure_contract_exists
+_ensure_verification_complete = BDO_MODULE._ensure_verification_complete
 
 
 class BusinessDeliveryOrchestratorTests(unittest.TestCase):
@@ -80,6 +89,12 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(loaded["delta"][0]["summary"], "")
         self.assertEqual(loaded["impact_scan"]["recommended_size"], "")
 
+    def test_validate_state_accepts_payment_and_migration_surfaces(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["payment", "migration"]
+
+        validate_state(state)
+
     def test_replace_section_placeholder_replaces_entire_block(self) -> None:
         template = "Changed:\n- old one\n- old two\n\nNext:\n- keep\n"
         rendered = replace_section_placeholder(template, "Changed:", "- new one\n- new two")
@@ -126,8 +141,34 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("pytest tests/foo_test.py", rendered)
         self.assertIn("no e2e env", rendered)
         self.assertIn("contract alignment", rendered)
+        self.assertNotIn("Inspect final diff", rendered)
         self.assertNotIn("\n- \n", rendered)
         self.assertNotIn("Not verified:\n- \n", rendered)
+
+    def test_render_handoff_ignores_incomplete_reviews(self) -> None:
+        state = default_state()
+        state["verification_summary"] = {
+            "checks": ["Inspect final diff"],
+            "escalation": [],
+            "stop_conditions": [],
+            "evidence": ["pytest tests/foo_test.py"],
+            "gaps": [],
+        }
+        state["reviews"] = [
+            {
+                "kind": "quality",
+                "status": "BLOCKED",
+                "focus": "edge cases",
+                "findings": ["Needs stronger rollback check"],
+                "evidence": ["review notes"],
+            }
+        ]
+
+        rendered = render_handoff(state)
+
+        self.assertIn("pytest tests/foo_test.py", rendered)
+        self.assertNotIn("Needs stronger rollback check", rendered)
+        self.assertNotIn("quality | BLOCKED", rendered)
 
     def test_render_memory_entry_derives_defaults_from_state(self) -> None:
         state = default_state()
@@ -216,6 +257,109 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             "Consider running `quiz`",
             clarify_warning(size="L", risk="high", surfaces=["ui"], has_quiz=False),
         )
+
+    def test_handoff_requires_spec_and_quality_reviews_for_large_tasks(self) -> None:
+        state = default_state()
+        state["size"] = "L"
+        state["verification_path"] = "bdo.verify.md"
+        state["verification_summary"] = {
+            "checks": [],
+            "escalation": [],
+            "stop_conditions": [],
+            "evidence": ["pytest tests/foo_test.py"],
+            "gaps": [],
+        }
+        state["reviews"] = [
+            {
+                "kind": "spec",
+                "status": "DONE",
+                "focus": "contract alignment",
+                "findings": [],
+                "evidence": ["checked contract"],
+            }
+        ]
+
+        with self.assertRaisesRegex(ValueError, "requires completed reviews for: quality"):
+            _ensure_verification_complete(state)
+
+    def test_handoff_allows_large_tasks_with_completed_spec_and_quality_reviews(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            verification_path = Path(tmpdir) / "bdo.verify.md"
+            verification_path.write_text("ok\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "XL"
+            state["verification_path"] = str(verification_path)
+            state["verification_summary"] = {
+                "checks": [],
+                "escalation": [],
+                "stop_conditions": [],
+                "evidence": ["pytest tests/foo_test.py"],
+                "gaps": [],
+            }
+            state["reviews"] = [
+                {
+                    "kind": "spec",
+                    "status": "DONE",
+                    "focus": "contract alignment",
+                    "findings": [],
+                    "evidence": ["checked contract"],
+                },
+                {
+                    "kind": "quality",
+                    "status": "DONE_WITH_CONCERNS",
+                    "focus": "residual risks",
+                    "findings": ["Monitor cache invalidation"],
+                    "evidence": ["reviewed diff"],
+                },
+            ]
+
+            _ensure_verification_complete(state)
+
+    def test_sensitive_surfaces_require_full_contract(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["payment"]
+
+        with self.assertRaisesRegex(ValueError, "require `contract --mode full`"):
+            _ensure_contract_allowed(state, "lightweight")
+
+    def test_contract_gate_requires_existing_contract_file(self) -> None:
+        state = default_state()
+        state["size"] = "M"
+        state["contract_path"] = "/tmp/does-not-exist.contract.md"
+
+        with self.assertRaisesRegex(ValueError, "requires an existing contract file"):
+            _ensure_contract_exists(state, command="verify")
+
+    def test_handoff_requires_existing_verification_report_file(self) -> None:
+        state = default_state()
+        state["size"] = "L"
+        state["verification_path"] = "/tmp/does-not-exist.verify.md"
+        state["verification_summary"] = {
+            "checks": [],
+            "escalation": [],
+            "stop_conditions": [],
+            "evidence": ["pytest tests/foo_test.py"],
+            "gaps": [],
+        }
+        state["reviews"] = [
+            {
+                "kind": "spec",
+                "status": "DONE",
+                "focus": "contract alignment",
+                "findings": [],
+                "evidence": ["checked contract"],
+            },
+            {
+                "kind": "quality",
+                "status": "DONE",
+                "focus": "residual risks",
+                "findings": [],
+                "evidence": ["reviewed diff"],
+            },
+        ]
+
+        with self.assertRaisesRegex(ValueError, "requires an existing verification report"):
+            _ensure_verification_complete(state)
 
 
 if __name__ == "__main__":

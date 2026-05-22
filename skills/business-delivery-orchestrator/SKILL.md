@@ -5,12 +5,7 @@ description: End-to-end business requirement delivery workflow for Codex, Claude
 
 # Business Delivery Orchestrator
 
-Use this skill to deliver a business requirement as one controlled workflow. Default to a single primary agent. Delegate only when the task crosses clear complexity thresholds and the delegated work can run independently with bounded files, bounded outputs, and a stable contract.
-
-This skill is harness-neutral:
-- In Codex, use native subagents only when explicitly available and appropriate.
-- In Claude Code, use Task/subagent calls or installed agents only when the thresholds below are met.
-- In Gemini or single-agent environments, execute the same phases locally and treat "delegation" as role-based self-review.
+Use this skill to deliver a business requirement as one controlled workflow. Default to a single primary agent. Delegate only when the work is clearly separable and worth the coordination cost. When native subagents are unavailable, keep the same phases and treat delegation as role-based self-review.
 
 ## Core Rule
 
@@ -34,7 +29,7 @@ Fast path steps:
 
 Skip delivery-contract templates, subagent decisions, and detailed handoff sections on the fast path unless a risk appears.
 
-Users can explicitly request the fast path by saying "quick fix", "fast path", or "skip process" — this bypasses auto-classification and forces the lightweight workflow unless a Hard Trigger fires.
+Users can explicitly request the fast path by saying "quick fix", "fast path", or "skip process" unless a Hard Trigger applies.
 
 ## Task Sizing
 
@@ -56,7 +51,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 
 | Gate | Trigger | Requirement |
 |---|---|---|
-| Auth/Payment/Migration | Any change touching these surfaces | Full contract, no fast path |
+| Auth/Data/Payment/Migration | Any change touching these surfaces | Full contract, no fast path |
 | Implementation start | M+ task without a contract | Contract written and confirmed |
 | Subagent dispatch | Delegation without a prompt contract | Prompt contract filled per Subagent Prompt Contract section |
 | Delivery | L/XL task without adversarial review | Adversarial review completed (Step 6) |
@@ -67,25 +62,25 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 1. Classify the request.
    - **Impact Scan**: Before sizing, perform a quick read-only scan of likely dependents. When using the bundled CLI, `scan` checks direct path matches first, then import/use references, then plain-text fallback matches to inform sizing. Treat the result as a heuristic, not a complete dependency graph.
    - Identify user goal, affected surfaces, expected deliverable, deadline pressure, and ambiguity.
-   - When using the bundled CLI, record touched surfaces in `.bdo.state.json` via repeated `--surface` flags so later verification can scale appropriately.
    - If the request is only analysis or brainstorming, stop before implementation and return the analysis.
    - If the request qualifies for the fast path, use the fast path and avoid the full workflow.
    - If the request is implementation, continue through verification unless blocked.
 
 2. Build a delivery contract before coding.
    - **Constitution Mining**: Extract technical constraints by reading project config files (e.g., `package.json`, `tsconfig.json`, `.eslintrc`). When using the bundled CLI, `mine` can prefill a lightweight set of detected constraints. The primary agent still owns validation and interpretation. **Hard constraint**: Never swap the project's existing database, framework, language, or key library for an alternative without explicit user approval — even if blocked by setup issues.
-   - **Clarify Quiz**: Before drafting the contract, the primary agent should identify 3-5 technical ambiguities or boundary risks (e.g., edge cases, legacy impact). Present them to the user as a structured quiz only when the answers materially affect behavior, safety, permissions, or irreversible actions.
+   - **Clarify Quiz**: Identify 3-5 technical ambiguities or boundary risks before drafting the contract. Present them to the user only when the answers materially affect behavior, safety, permissions, or irreversible actions.
    - Capture goal, non-goals, user flow, data/API contract, UI states, acceptance criteria, risks, and verification commands.
    - **Two-Pass Contract (L/XL only)**: For L/XL tasks, the primary agent should split the contract into two passes. **Pass 1 (WHAT)**: Goal, Behavior, Non-goals, Acceptance Criteria — confirm with user before proceeding. **Pass 2 (HOW)**: Data/API, Frontend/Backend contract, Verification plan — written after WHAT is confirmed. This prevents premature technical decisions from polluting requirement understanding.
    - For M tasks, use the lightweight template in `templates/lightweight-contract-template.md`.
    - **No Placeholders**: Contracts and plans must never contain TBD, TODO, "implement later", "add appropriate error handling", "Similar to Task N", or steps that describe what to do without showing how. Every step must have exact file paths and complete code.
-   - Keep it concise in the working context. Use `references/delivery-contract.md` or `templates/full-delivery-contract-template.md` when the requirement is ambiguous, cross-functional, full-stack, or L/XL.
+   - Keep it concise. Use `references/delivery-contract.md` when the requirement is ambiguous, cross-functional, or L/XL.
 
 3. Decide whether to delegate.
    - Default: no subagents.
+   - Before spawning any subagent or recommending a multi-agent plan, read `references/delegation-matrix.md`.
    - Delegate only if the delegation matrix says the task is medium/high complexity and the work can be isolated.
+   - Skip the delegation reference entirely when the task remains single-agent or fast-path.
    - **Branch Isolation**: If delegating write access and the environment supports isolated branches or worktrees, prefer them for physical code isolation. This skill does not create worktrees automatically.
-   - Read `references/delegation-matrix.md` before spawning any subagent or recommending a multi-agent plan.
 
 4. Plan file ownership.
    - Assign each implementation slice to one owner.
@@ -97,8 +92,8 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - Prefer the repository's existing patterns.
    - Keep changes scoped to the delivery contract.
    - **Contract Alignment**: After each sub-task, verify the implementation still aligns with the contract. If deviating, pause and update the contract delta before proceeding.
-   - If subagents produce code or diffs, treat them as drafts. The primary agent reviews, adapts, and applies final changes.
-   - If the user changes scope midstream, record the delta before continuing: added behavior, removed behavior, affected files/contracts, and verification impact.
+   - Treat subagent output as draft input, not final truth.
+   - If the user changes scope midstream, record the delta before continuing.
 
 6. Verify.
    - **Adversarial Review (Two-Stage for L/XL)**:
@@ -106,18 +101,16 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
      2. **Code Quality Review**: Inspect for correctness, performance, security, and maintainability. Prefer a separate Reviewer subagent (not the same one from Stage 1) when available.
      3. Identify 3 potential failure modes (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
      For M tasks, combine both stages into a single self-review pass.
-   - **Cross-Phase Consistency Check (L/XL)**: Before running tests, verify alignment across all artifacts: Contract → Plan → Implementation. Check: (1) every AC has a corresponding task, (2) every implemented file traces back to the plan, (3) no extra features beyond the contract scope slipped in.
+   - **Cross-Phase Consistency Check (L/XL)**: Before running tests, verify Contract → Plan → Implementation alignment.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
-   - Use `references/verification-gates.md` for selecting tests, lint/type checks, E2E, review passes, and stop conditions.
-   - When using the bundled CLI, persist structured verification results (`checks`, `escalation`, `stop_conditions`) into state so handoff can reuse them.
+   - Use `references/verification-gates.md` for verification depth and stop conditions.
    - Self-review the final diff for scope drift, existing-pattern fit, boundary cases, and unrelated changes before reporting completion.
 
 7. Deliver.
    - Report what changed, what was verified, known residual risks, and any follow-up that is truly useful.
-   - **Knowledge Base Update**: After a successful delivery, identify 1-2 lessons learned (e.g., a tricky library behavior or a project-specific pitfall). Append these to the project's `MEMORY.md` using `templates/memory-entry-template.md`.
+   - **Knowledge Base Update**: After a successful delivery, append 1-2 reusable lessons to `MEMORY.md`.
    - If blocked, report the blocker, evidence, and the next concrete action.
-   - Use `templates/handoff-template.md` for the delivery report unless the environment already has a stricter handoff format.
-   - When using the bundled CLI, prefer generating handoff after verify so it can pull the latest delta and verification summary from state.
+   - Use `templates/handoff-template.md` unless the environment already has a stricter handoff format.
 
 ## Progress Tracking
 
@@ -241,20 +234,10 @@ If ECC tools or agents are installed, use them as implementation mechanisms, but
 
 ## Bundled CLI
 
-This skill includes a local helper at `tools/bdo.py`. Use it when structured artifacts or stable machine-readable output are useful; skip it for trivial fast-path work.
+This skill includes a local helper at `tools/bdo.py`. Use it when structured artifacts or machine-readable output are useful; skip it for trivial fast-path work.
 
-- `python3 tools/bdo.py init --objective "..."` initializes `.bdo.state.json`
-- `python3 tools/bdo.py classify --size M --risk medium --surface ui --surface api` records task shape and touched surfaces
-- `python3 tools/bdo.py phase plan|implement|review|verify` explicitly advances the tracked workflow phase when you want state to mirror the documented progress block
-- `python3 tools/bdo.py quiz` generates a lightweight clarify-quiz draft and can record resolved assumptions for later contract reuse
-- `python3 tools/bdo.py scan --target billing --target InvoiceTable` records a heuristic impact scan for sizing using path, import/use, and text fallback matches
-- `python3 tools/bdo.py mine` records lightweight repo constraints from supported config files
-- `python3 tools/bdo.py contract-what` and `contract-how` generate separate WHAT/HOW contract passes for L/XL work
-- `python3 tools/bdo.py review --kind spec|quality --status DONE|DONE_WITH_CONCERNS|NEEDS_CONTEXT|BLOCKED` records a lightweight adversarial review pass for later handoff reuse
-- `python3 tools/bdo.py contract`, `verify`, `handoff`, `memory`, `delta`, `status` generate or inspect workflow artifacts
-- Contract generation pre-fills surface-aware defaults from state and detected constraints, `delta` writes a structural summary, and state writes are atomic so repeated CLI calls do not leave half-written JSON
-- `verify` supports `--evidence` and `--gap`, `memory` supports `--context` / `--lesson` / `--rule` / `--evidence`, and `handoff` reuses the latest delta plus verification evidence instead of recomputing from scratch
-- Basic hard-gate checks are enforced in the CLI: M/L/XL verification requires a contract, `auth`/`data` work requires a full contract, and handoff requires verification output
-- `classify` and `contract` emit a soft `quiz` reminder when the task is large or risky and no clarify quiz has been recorded yet
-- Add `--json` when another agent or script should consume the result programmatically
-- State shape is documented in `schema/bdo-state.schema.json`, including explicit `plan`, `implement`, and `review` phases plus review records for adversarial review tracking
+- Core commands: `init`, `classify`, `phase`, `quiz`, `scan`, `mine`, `contract`, `contract-what`, `contract-how`, `review`, `verify`, `handoff`, `memory`, `delta`, `status`
+- Enforced checks: `auth/data/payment/migration` work requires a full contract; M/L/XL verification requires a contract; handoff requires contract and verification files that still exist; L/XL handoff also requires completed `spec` and `quality` reviews
+- Soft reminders: `classify` and contract commands suggest `quiz` when the task is large or risky and no clarify quiz has been recorded yet
+- Output: add `--json` for machine-readable output
+- State shape: see `schema/bdo-state.schema.json`

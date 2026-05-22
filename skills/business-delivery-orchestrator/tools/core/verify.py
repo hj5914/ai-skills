@@ -69,6 +69,8 @@ def _checks_for_surfaces(surfaces: list[str]) -> list[str]:
         "utility": "Run direct caller regression coverage for the shared utility",
         "data": "Run migration or dry-run reasoning plus rollback review",
         "auth": "Verify positive and negative permission cases",
+        "payment": "Verify success, failure, retry, and duplicate-submission payment paths",
+        "migration": "Run migration or dry-run plus rollback and compatibility review",
         "external": "Verify timeout/error behavior and no-credential fallback path",
         "performance": "Inspect complexity and run a targeted benchmark/profile if available",
     }
@@ -86,8 +88,8 @@ def _escalation_triggers(*, size: str, risk: str, surfaces: list[str]) -> list[s
         triggers.append("Run adversarial review and broader integration validation")
     if risk.lower() in {"high", "critical"}:
         triggers.append("Increase verification depth because the task risk is high")
-    if {"auth", "data"} & set(surfaces):
-        triggers.append("Add explicit rollback/denial-path review for auth or data surfaces")
+    if {"auth", "data", "payment", "migration"} & set(surfaces):
+        triggers.append("Add explicit rollback, denial, or irreversible-path review for sensitive surfaces")
     if {"ui", "backend"} <= set(surfaces) or {"ui", "api"} <= set(surfaces):
         triggers.append("Verify frontend/backend contract alignment because multiple layers changed")
     if not triggers:
@@ -100,7 +102,7 @@ def _stop_conditions(*, size: str, risk: str, surfaces: list[str]) -> list[str]:
         "Stop if required credentials, services, or user decisions are missing",
         "Stop if the repo has unrelated dirty changes that make isolation impossible",
     ]
-    if "data" in surfaces or "auth" in surfaces or risk.lower() in {"high", "critical"}:
+    if {"data", "auth", "payment", "migration"} & set(surfaces) or risk.lower() in {"high", "critical"}:
         conditions.append("Stop before destructive validation unless approval is explicit")
     if size in {"L", "XL"}:
         conditions.append("Stop if contract and implementation drift before verification is complete")

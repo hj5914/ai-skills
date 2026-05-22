@@ -17,6 +17,8 @@ VALID_SURFACES = {
     "utility",
     "data",
     "auth",
+    "payment",
+    "migration",
     "external",
     "performance",
 }
