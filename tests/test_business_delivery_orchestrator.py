@@ -32,6 +32,7 @@ _ensure_contract_exists = BDO_MODULE._ensure_contract_exists
 _ensure_verification_complete = BDO_MODULE._ensure_verification_complete
 _invalidate_downstream_artifacts_if_contract_changed = BDO_MODULE._invalidate_downstream_artifacts_if_contract_changed
 build_resume_summary = BDO_MODULE.build_resume_summary
+_build_blocked_recovery = BDO_MODULE._build_blocked_recovery
 build_parser = BDO_MODULE.build_parser
 cmd_classify = BDO_MODULE.cmd_classify
 cmd_contract_what = BDO_MODULE.cmd_contract_what
@@ -380,13 +381,18 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(summary["suggested_command"], "contract-how")
 
     def test_resume_summary_detects_missing_verification_artifact(self) -> None:
-        state = default_state()
-        state["objective"] = "Add bulk archive"
-        state["size"] = "M"
-        state["phase"] = "verify"
-        state["verification_path"] = "/tmp/does-not-exist.verify.md"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "bdo.contract.md"
+            contract_path.write_text("contract\n", encoding="utf-8")
+            state = default_state()
+            state["objective"] = "Add bulk archive"
+            state["size"] = "M"
+            state["phase"] = "verify"
+            state["contract_path"] = str(contract_path)
+            state["contract_stage"] = "lightweight"
+            state["verification_path"] = "/tmp/does-not-exist.verify.md"
 
-        summary = build_resume_summary(state)
+            summary = build_resume_summary(state)
 
         self.assertIn("Missing verification artifact", summary["blockers"][0])
         self.assertEqual(summary["next_step"], "Regenerate the missing verification report before handoff.")
@@ -411,6 +417,101 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(summary["blockers"], [])
         self.assertEqual(summary["next_step"], "Generate the handoff artifact to complete delivery.")
         self.assertEqual(summary["suggested_command"], "handoff")
+
+    def test_resume_summary_flags_phase_without_contract(self) -> None:
+        state = default_state()
+        state["objective"] = "Add bulk archive"
+        state["size"] = "M"
+        state["phase"] = "verify"
+
+        summary = build_resume_summary(state)
+
+        self.assertIn("Phase/state mismatch: verification or delivery is recorded without a contract.", summary["blockers"])
+        self.assertEqual(summary["next_step"], "Regenerate the required contract before trusting verify or delivery state.")
+        self.assertEqual(summary["suggested_command"], "contract --mode lightweight")
+
+    def test_resume_summary_flags_missing_lxl_reviews_after_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "bdo.contract.how.md"
+            verification_path = Path(tmpdir) / "bdo.verify.md"
+            contract_path.write_text("contract\n", encoding="utf-8")
+            verification_path.write_text("verify\n", encoding="utf-8")
+            state = default_state()
+            state["objective"] = "Add bulk archive"
+            state["size"] = "L"
+            state["phase"] = "verify"
+            state["contract_path"] = str(contract_path)
+            state["contract_stage"] = "how"
+            state["verification_path"] = str(verification_path)
+            state["reviews"] = [
+                {
+                    "kind": "spec",
+                    "status": "DONE",
+                    "focus": "contract alignment",
+                    "findings": [],
+                    "evidence": ["checked contract"],
+                }
+            ]
+
+            summary = build_resume_summary(state)
+
+        self.assertIn("Missing completed L/XL reviews: quality.", summary["blockers"])
+        self.assertEqual(summary["next_step"], "Record the missing completed reviews before handoff: quality.")
+        self.assertEqual(summary["suggested_command"], "review --kind spec|quality --status DONE")
+
+    def test_blocked_recovery_requests_more_context(self) -> None:
+        state = default_state()
+        state["reviews"] = [
+            {
+                "kind": "quality",
+                "status": "NEEDS_CONTEXT",
+                "focus": "missing credential",
+                "findings": ["Need access token for regression environment"],
+                "evidence": [],
+            }
+        ]
+
+        recovery = _build_blocked_recovery(state)
+
+        self.assertEqual(recovery["mode"], "provide_context")
+        self.assertIn("needs more context", recovery["blocker"])
+        self.assertEqual(recovery["suggested_command"], 'quiz --assumption "..."')
+
+    def test_blocked_recovery_escalates_plan_when_review_mentions_contract(self) -> None:
+        state = default_state()
+        state["contract_stage"] = "what"
+        state["reviews"] = [
+            {
+                "kind": "spec",
+                "status": "BLOCKED",
+                "focus": "contract mismatch",
+                "findings": ["Plan is wrong for the current contract"],
+                "evidence": [],
+            }
+        ]
+
+        recovery = _build_blocked_recovery(state)
+
+        self.assertEqual(recovery["mode"], "escalate_plan")
+        self.assertEqual(recovery["suggested_command"], "contract-how")
+
+    def test_blocked_recovery_collapses_to_single_agent_for_small_task(self) -> None:
+        state = default_state()
+        state["size"] = "M"
+        state["reviews"] = [
+            {
+                "kind": "quality",
+                "status": "BLOCKED",
+                "focus": "low confidence",
+                "findings": ["Another delegated pass is not justified"],
+                "evidence": [],
+            }
+        ]
+
+        recovery = _build_blocked_recovery(state)
+
+        self.assertEqual(recovery["mode"], "collapse_to_single_agent")
+        self.assertEqual(recovery["suggested_command"], "phase implement")
 
     def test_clarify_quiz_and_contract_assumptions(self) -> None:
         quiz = build_clarify_quiz(
