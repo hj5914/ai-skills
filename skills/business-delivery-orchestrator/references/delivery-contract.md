@@ -13,6 +13,9 @@ Goal:
 Behavior:
 - 
 
+Constraints (Constitution):
+- 
+
 Non-goals:
 - 
 
@@ -38,6 +41,9 @@ Goal:
 - 
 
 Non-goals:
+- 
+
+Constraints (Constitution):
 - 
 
 Users and workflow:

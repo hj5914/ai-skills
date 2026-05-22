@@ -57,6 +57,7 @@ When signals conflict, choose the heavier path only for the risky surface. Do no
    - If the request is implementation, continue through verification unless blocked.
 
 2. Build a delivery contract before coding.
+   - **Clarify Quiz**: Before drafting the contract, identify 3-5 technical ambiguities or boundary risks (e.g., edge cases, legacy impact). Present them to the user as a structured "quiz" to resolve unknowns early.
    - Capture goal, non-goals, user flow, data/API contract, UI states, acceptance criteria, risks, and verification commands.
    - For M tasks, use this lightweight contract inline:
      ```markdown
@@ -79,12 +80,14 @@ When signals conflict, choose the heavier path only for the risky surface. Do no
    - Keep product/research/review agents read-only unless the user explicitly wants artifact drafts.
 
 5. Implement.
+   - **Micro-Tasking**: Break the plan into granular tasks that can be verified in ~5 minutes (Red-Green-Refactor cycle).
    - Prefer the repository's existing patterns.
    - Keep changes scoped to the delivery contract.
    - If subagents produce code or diffs, treat them as drafts. The primary agent reviews, adapts, and applies final changes.
    - If the user changes scope midstream, record the delta before continuing: added behavior, removed behavior, affected files/contracts, and verification impact.
 
 6. Verify.
+   - **Adversarial Review**: Before final delivery, perform a self-attack. Identify 3 potential failure modes in your implementation (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
    - Use `references/verification-gates.md` for selecting tests, lint/type checks, E2E, review passes, and handoff criteria.
    - Self-review the final diff for scope drift, existing-pattern fit, boundary cases, and unrelated changes before reporting completion.
@@ -157,6 +160,7 @@ Summarize subagent results before integrating them. Do not paste full long outpu
 
 ## Anti-Overhead Controls
 
+- **Confirmation Protocol**: On critical gates (Contract approval, Plan review, Release), provide a 3-line summary and wait for a specific confirmation keyword (e.g., `CONFIRM_PLAN`).
 - Cap the active delivery contract at roughly 20 bullets unless the user asks for a detailed plan.
 - Ask at most three clarifying questions before making conservative assumptions.
 - Do not read reference files unless the current phase needs them.

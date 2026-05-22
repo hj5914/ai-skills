@@ -44,7 +44,11 @@ Use this reference to choose verification depth and prepare handoff.
    - Run dev server or browser checks when the task is UI-heavy and tooling is available.
    - For CLI/API tasks, run representative commands or requests.
 
-5. Review:
+5. Adversarial Review (Mandatory for L/XL):
+   - Identify 3 potential failure modes (concurrency, data loss, UI lag).
+   - Document how they are addressed or why they are acceptable risks.
+
+6. Review:
    - Use self-review for small/medium changes.
    - Use subagent or specialist review for high-risk security, data, performance, or accessibility changes.
 
@@ -53,6 +57,7 @@ Use this reference to choose verification depth and prepare handoff.
 Before reporting completion, check:
 - The diff matches the contract or documented delta.
 - No unrelated files or generated churn slipped in.
+- **Adversarial Review**: 3 failure modes identified and addressed (L/XL).
 - Existing patterns, naming, and error handling were followed.
 - Boundary cases are covered: empty, invalid, unauthorized, loading, failure, and rollback where relevant.
 - Tests or manual checks exercise the changed behavior, not just implementation details.
