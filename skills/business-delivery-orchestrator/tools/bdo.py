@@ -16,6 +16,7 @@ if str(TOOLS_DIR) not in sys.path:
 from core.handoff import render_handoff
 from core.contract import render_contract
 from core.memory import parse_memory_entry, render_memory_entry
+from core.quiz import build_clarify_quiz
 from core.scan import mine_constraints, run_impact_scan
 from core.state import (
     STATE_FILE_NAME,
@@ -100,6 +101,22 @@ def cmd_phase(args: argparse.Namespace) -> int:
     return _emit(args, command="phase", state_path=state_path, data={"phase": state["phase"]})
 
 
+def cmd_quiz(args: argparse.Namespace) -> int:
+    state_path = args.state or Path.cwd() / STATE_FILE_NAME
+    state = load_state(state_path)
+    quiz = build_clarify_quiz(
+        objective=state.get("objective", ""),
+        size=state.get("size", "M"),
+        risk=state.get("risk", "medium"),
+        surfaces=state.get("surfaces", []),
+    )
+    if args.assumption:
+        quiz["resolved"] = args.assumption
+    state["clarify_quiz"] = quiz
+    save_state(state_path, state)
+    return _emit(args, command="quiz", state_path=state_path, data=quiz)
+
+
 def cmd_contract(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
@@ -111,6 +128,7 @@ def cmd_contract(args: argparse.Namespace) -> int:
         mode=args.mode,
         surfaces=state.get("surfaces", []),
         constraints_detected=state.get("constraints_detected", []),
+        clarify_assumptions=_resolved_assumptions(state),
     )
     contract_path = args.output or Path.cwd() / "bdo.contract.md"
     _write_text(contract_path, contract)
@@ -141,6 +159,7 @@ def cmd_contract_what(args: argparse.Namespace) -> int:
         mode="what",
         surfaces=state.get("surfaces", []),
         constraints_detected=state.get("constraints_detected", []),
+        clarify_assumptions=_resolved_assumptions(state),
     )
     contract_path = args.output or Path.cwd() / "bdo.contract.what.md"
     _write_text(contract_path, contract)
@@ -164,6 +183,7 @@ def cmd_contract_how(args: argparse.Namespace) -> int:
         mode="how",
         surfaces=state.get("surfaces", []),
         constraints_detected=state.get("constraints_detected", []),
+        clarify_assumptions=_resolved_assumptions(state),
     )
     contract_path = args.output or Path.cwd() / "bdo.contract.how.md"
     _write_text(contract_path, contract)
@@ -340,6 +360,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_phase)
 
+    p = sub.add_parser("quiz")
+    p.add_argument("--assumption", action="append", help="Resolved assumption to carry into contracts")
+    p.set_defaults(func=cmd_quiz)
+
     p = sub.add_parser("scan")
     p.add_argument("--target", action="append", help="Keyword, path, or module name to scan for impact")
     p.set_defaults(func=cmd_scan)
@@ -443,6 +467,20 @@ def _ensure_verification_complete(state: dict) -> None:
         raise ValueError("handoff requires a verification report")
     if size in {"L", "XL"} and not evidence:
         raise ValueError("handoff for L/XL tasks requires verification evidence")
+
+
+def _resolved_assumptions(state: dict) -> list[str]:
+    quiz = state.get("clarify_quiz", {})
+    if not isinstance(quiz, dict):
+        return []
+    resolved = quiz.get("resolved", [])
+    assumptions = quiz.get("assumptions", [])
+    result: list[str] = []
+    if isinstance(resolved, list):
+        result.extend([item for item in resolved if isinstance(item, str)])
+    if not result and isinstance(assumptions, list):
+        result.extend([item for item in assumptions if isinstance(item, str)])
+    return result
 
 
 if __name__ == "__main__":

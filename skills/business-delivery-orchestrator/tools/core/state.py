@@ -40,6 +40,11 @@ def default_state() -> dict:
             "gaps": [],
         },
         "reviews": [],
+        "clarify_quiz": {
+            "questions": [],
+            "assumptions": [],
+            "resolved": [],
+        },
         "impact_scan": {
             "targets": [],
             "matched_files": [],
@@ -111,6 +116,12 @@ def normalize_state(state: dict) -> dict:
         )
     merged["reviews"] = normalized_reviews
 
+    quiz = state.get("clarify_quiz", {})
+    merged_quiz = default_state()["clarify_quiz"]
+    if isinstance(quiz, dict):
+        merged_quiz.update(quiz)
+    merged["clarify_quiz"] = merged_quiz
+
     normalized_delta = []
     for item in state.get("delta", []):
         if not isinstance(item, dict):
@@ -149,6 +160,7 @@ def validate_state(state: dict) -> None:
         "surfaces": list,
         "verification_summary": dict,
         "reviews": list,
+        "clarify_quiz": dict,
         "impact_scan": dict,
         "constraints_detected": list,
         "delta": list,
@@ -193,6 +205,13 @@ def validate_state(state: dict) -> None:
         for key in ("findings", "evidence"):
             if key not in item or not isinstance(item[key], list) or not all(isinstance(v, str) for v in item[key]):
                 raise ValueError(f"BDO state reviews[{idx}].{key} must be a list of strings")
+
+    quiz = state["clarify_quiz"]
+    if set(quiz.keys()) != {"questions", "assumptions", "resolved"}:
+        raise ValueError("BDO state clarify_quiz must contain questions, assumptions, resolved")
+    for key in ("questions", "assumptions", "resolved"):
+        if not isinstance(quiz[key], list) or not all(isinstance(v, str) for v in quiz[key]):
+            raise ValueError(f"BDO state clarify_quiz.{key} must be a list of strings")
 
     scan = state["impact_scan"]
     if set(scan.keys()) != {"targets", "matched_files", "summary", "recommended_size", "notes"}:

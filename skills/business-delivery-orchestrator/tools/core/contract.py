@@ -30,11 +30,25 @@ def render_contract(
     mode: str,
     surfaces: list[str],
     constraints_detected: list[str] | None = None,
+    clarify_assumptions: list[str] | None = None,
 ) -> str:
     if mode == "what":
-        return _render_what_contract(objective=objective, size=size, risk=risk, surfaces=surfaces)
+        return _render_what_contract(
+            objective=objective,
+            size=size,
+            risk=risk,
+            surfaces=surfaces,
+            clarify_assumptions=clarify_assumptions,
+        )
     if mode == "how":
-        return _render_how_contract(objective=objective, size=size, risk=risk, surfaces=surfaces, constraints_detected=constraints_detected)
+        return _render_how_contract(
+            objective=objective,
+            size=size,
+            risk=risk,
+            surfaces=surfaces,
+            constraints_detected=constraints_detected,
+            clarify_assumptions=clarify_assumptions,
+        )
     if mode == "full" or size in {"L", "XL"}:
         return _render_full_contract(
             objective=objective,
@@ -42,6 +56,7 @@ def render_contract(
             risk=risk,
             surfaces=surfaces,
             constraints_detected=constraints_detected,
+            clarify_assumptions=clarify_assumptions,
         )
     return _render_lightweight_contract(
         objective=objective,
@@ -49,10 +64,13 @@ def render_contract(
         risk=risk,
         surfaces=surfaces,
         constraints_detected=constraints_detected,
+        clarify_assumptions=clarify_assumptions,
     )
 
 
-def _render_what_contract(*, objective: str, size: str, risk: str, surfaces: list[str]) -> str:
+def _render_what_contract(
+    *, objective: str, size: str, risk: str, surfaces: list[str], clarify_assumptions: list[str] | None = None
+) -> str:
     template = load_template_code_block("full-delivery-contract-template.md")
     template = fill_once(template, "## Delivery Contract", "## Delivery Contract - WHAT")
     template = fill_once(template, "Goal:\n- ", f"Goal:\n- {objective or ''}")
@@ -64,7 +82,11 @@ def _render_what_contract(*, objective: str, size: str, risk: str, surfaces: lis
     template = fill_once(template, "- Failure states:", f"- Failure states: {_failure_states(surfaces)}")
     template = fill_once(template, "- Empty/loading states:", f"- Empty/loading states: {_empty_loading_defaults(surfaces)}")
     template = replace_section_placeholder(template, "Acceptance criteria:", checklist_block(_acceptance_defaults(surfaces)[:3]))
-    template = replace_section_placeholder(template, "Risks and assumptions:", list_block([f"size={size}", f"risk={risk}", f"surfaces={', '.join(surfaces) if surfaces else 'none'}"]))
+    template = replace_section_placeholder(
+        template,
+        "Risks and assumptions:",
+        list_block(_assumption_defaults(size=size, risk=risk, surfaces=surfaces, clarify_assumptions=clarify_assumptions)),
+    )
     template = replace_section_placeholder(template, "Data and API:", "- Shared behavior is intentionally deferred to the HOW pass.\n- ")
     template = replace_section_placeholder(template, "Frontend contract:", "- Shared behavior is intentionally deferred to the HOW pass.\n- ")
     template = replace_section_placeholder(template, "Backend contract:", "- Shared behavior is intentionally deferred to the HOW pass.\n- ")
@@ -73,7 +95,13 @@ def _render_what_contract(*, objective: str, size: str, risk: str, surfaces: lis
 
 
 def _render_how_contract(
-    *, objective: str, size: str, risk: str, surfaces: list[str], constraints_detected: list[str] | None = None
+    *,
+    objective: str,
+    size: str,
+    risk: str,
+    surfaces: list[str],
+    constraints_detected: list[str] | None = None,
+    clarify_assumptions: list[str] | None = None,
 ) -> str:
     template = load_template_code_block("full-delivery-contract-template.md")
     template = fill_once(template, "## Delivery Contract", "## Delivery Contract - HOW")
@@ -103,12 +131,22 @@ def _render_how_contract(
     template = fill_once(template, "- Side effects:", f"- Side effects: {'Make external calls and notifications explicit in the implementation boundary.' if 'external' in surfaces else 'No new external side effects planned.'}")
     template = fill_once(template, "- Observability:", f"- Observability: {_observability_defaults(surfaces)}")
     template = replace_section_placeholder(template, "Acceptance criteria:", checklist_block(_acceptance_defaults(surfaces)[:3]))
-    template = replace_section_placeholder(template, "Risks and assumptions:", list_block([f"size={size}", f"risk={risk}", f"surfaces={', '.join(surfaces) if surfaces else 'none'}"]))
+    template = replace_section_placeholder(
+        template,
+        "Risks and assumptions:",
+        list_block(_assumption_defaults(size=size, risk=risk, surfaces=surfaces, clarify_assumptions=clarify_assumptions)),
+    )
     return template
 
 
 def _render_lightweight_contract(
-    *, objective: str, size: str, risk: str, surfaces: list[str], constraints_detected: list[str] | None = None
+    *,
+    objective: str,
+    size: str,
+    risk: str,
+    surfaces: list[str],
+    constraints_detected: list[str] | None = None,
+    clarify_assumptions: list[str] | None = None,
 ) -> str:
     template = load_template_code_block("lightweight-contract-template.md")
     template = fill_once(template, "Goal:\n- ", f"Goal:\n- {objective or ''}")
@@ -117,7 +155,7 @@ def _render_lightweight_contract(
     behaviors = _behavior_defaults(surfaces)
     acceptance = _acceptance_defaults(surfaces)
     verification = _verification_defaults(surfaces)
-    assumptions = [f"size={size}", f"risk={risk}", f"surfaces={', '.join(surfaces) if surfaces else 'none'}"]
+    assumptions = _assumption_defaults(size=size, risk=risk, surfaces=surfaces, clarify_assumptions=clarify_assumptions)
     if constraints:
         template = replace_section_placeholder(template, "Constraints (Constitution):", list_block(constraints))
     if behaviors:
@@ -133,7 +171,13 @@ def _render_lightweight_contract(
 
 
 def _render_full_contract(
-    *, objective: str, size: str, risk: str, surfaces: list[str], constraints_detected: list[str] | None = None
+    *,
+    objective: str,
+    size: str,
+    risk: str,
+    surfaces: list[str],
+    constraints_detected: list[str] | None = None,
+    clarify_assumptions: list[str] | None = None,
 ) -> str:
     template = load_template_code_block("full-delivery-contract-template.md")
     template = fill_once(template, "Goal:\n- ", f"Goal:\n- {objective or ''}")
@@ -178,11 +222,7 @@ def _render_full_contract(
     )
     verification = _verification_plan_for_full(surfaces)
     acceptance = _acceptance_defaults(surfaces)[:3]
-    risks = [
-        f"size={size}",
-        f"risk={risk}",
-        f"surfaces={', '.join(surfaces) if surfaces else 'none'}",
-    ]
+    risks = _assumption_defaults(size=size, risk=risk, surfaces=surfaces, clarify_assumptions=clarify_assumptions)
     if "auth" in surfaces:
         risks.append("permission-denial behavior must be verified explicitly")
     if "data" in surfaces:
@@ -365,3 +405,12 @@ def _verification_plan_for_full(surfaces: list[str]) -> dict[str, str]:
         "manual": "smoke the user-facing flow and failure states" if "ui" in surfaces else "run a representative command or request",
         "build": "run relevant build, lint, or typecheck targets for touched modules",
     }
+
+
+def _assumption_defaults(
+    *, size: str, risk: str, surfaces: list[str], clarify_assumptions: list[str] | None = None
+) -> list[str]:
+    items = [f"size={size}", f"risk={risk}", f"surfaces={', '.join(surfaces) if surfaces else 'none'}"]
+    if clarify_assumptions:
+        items.extend(clarify_assumptions[:4])
+    return items

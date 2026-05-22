@@ -8,17 +8,18 @@
 - `references/`：契约、委派矩阵、验证门禁
 - `templates/`：contract、reviewer prompt、handoff、gate checklist、`MEMORY.md` 模板
 - `examples/`：最小端到端示例
-- `tools/bdo.py`：本地 CLI，生成 state、scan、mine、contract、review、verify、handoff、memory 产物
+- `tools/bdo.py`：本地 CLI，生成 state、quiz、scan、mine、contract、review、verify、handoff、memory 产物
 
 ## CLI 速览
 
 ```text
-python3 tools/bdo.py init|classify|phase|scan|mine|contract-what|contract-how|contract|review|verify|handoff|memory|delta|status
+python3 tools/bdo.py init|classify|phase|quiz|scan|mine|contract-what|contract-how|contract|review|verify|handoff|memory|delta|status
 ```
 
 ## 使用建议
 
 - 小任务走 fast path；大任务先写 contract，再实现，再 verify，再 handoff。
+- `quiz` 生成候选澄清问题，并可记录已确认 assumptions 供 contract 复用。
 - `scan` 是启发式，不是完整依赖图。
 - `contract-what` / `contract-how` 用于 L/XL 的两段式契约。
 - `review` 记录轻量 adversarial review 结果，供 `handoff` 复用。

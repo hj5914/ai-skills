@@ -15,6 +15,7 @@ if str(TOOLS_DIR) not in sys.path:
 from core.handoff import render_handoff
 from core.contract import render_contract
 from core.memory import parse_memory_entry, render_memory_entry
+from core.quiz import build_clarify_quiz
 from core.scan import run_impact_scan
 from core.state import default_state, load_state, normalize_state
 from core.templates import replace_section_placeholder
@@ -54,6 +55,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(normalized["delta"][0]["summary"], "")
         self.assertEqual(normalized["impact_scan"]["matched_files"], [])
         self.assertEqual(normalized["constraints_detected"], [])
+        self.assertEqual(normalized["clarify_quiz"]["questions"], [])
 
     def test_load_state_normalizes_legacy_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -188,6 +190,26 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("Shared behavior is intentionally deferred to the HOW pass.", what)
         self.assertIn("Delivery Contract - HOW", how)
         self.assertIn("Script test: pytest", how)
+
+    def test_clarify_quiz_and_contract_assumptions(self) -> None:
+        quiz = build_clarify_quiz(
+            objective="Archive completed tasks",
+            size="L",
+            risk="high",
+            surfaces=["ui", "backend", "auth"],
+        )
+        contract = render_contract(
+            objective="Archive completed tasks",
+            size="L",
+            risk="high",
+            mode="full",
+            surfaces=["ui", "backend", "auth"],
+            clarify_assumptions=["Resolved: reject mixed-status selections"],
+        )
+
+        self.assertGreaterEqual(len(quiz["questions"]), 3)
+        self.assertIn("Permissions:", "\n".join(quiz["questions"]))
+        self.assertIn("Resolved: reject mixed-status selections", contract)
 
 
 if __name__ == "__main__":

@@ -246,6 +246,7 @@ This skill includes a local helper at `tools/bdo.py`. Use it when structured art
 - `python3 tools/bdo.py init --objective "..."` initializes `.bdo.state.json`
 - `python3 tools/bdo.py classify --size M --risk medium --surface ui --surface api` records task shape and touched surfaces
 - `python3 tools/bdo.py phase plan|implement|review|verify` explicitly advances the tracked workflow phase when you want state to mirror the documented progress block
+- `python3 tools/bdo.py quiz` generates a lightweight clarify-quiz draft and can record resolved assumptions for later contract reuse
 - `python3 tools/bdo.py scan --target billing --target InvoiceTable` records a heuristic impact scan for sizing using path, import/use, and text fallback matches
 - `python3 tools/bdo.py mine` records lightweight repo constraints from supported config files
 - `python3 tools/bdo.py contract-what` and `contract-how` generate separate WHAT/HOW contract passes for L/XL work
