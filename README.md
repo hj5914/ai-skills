@@ -73,6 +73,13 @@ python3 skills/business-delivery-orchestrator/tools/bdo.py memory
 python3 skills/business-delivery-orchestrator/tools/bdo.py status
 ```
 
+机器可读输出：
+
+```bash
+python3 skills/business-delivery-orchestrator/tools/bdo.py --json classify --size L --risk high --surface ui --surface api
+python3 skills/business-delivery-orchestrator/tools/bdo.py --json verify
+```
+
 ## 安装示例
 
 使用 Codex skill installer 安装单个 skill：

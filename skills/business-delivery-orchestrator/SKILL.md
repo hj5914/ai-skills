@@ -67,6 +67,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 1. Classify the request.
    - **Impact Scan**: Before sizing, perform a quick "read-only" scan of the project's dependency graph. Identify how many files import the target module or share the data schema. Use this to confirm the Size and Hard Triggers.
    - Identify user goal, affected surfaces, expected deliverable, deadline pressure, and ambiguity.
+   - When using the bundled CLI, record touched surfaces in `.bdo.state.json` via repeated `--surface` flags so later verification can scale appropriately.
    - If the request is only analysis or brainstorming, stop before implementation and return the analysis.
    - If the request qualifies for the fast path, use the fast path and avoid the full workflow.
    - If the request is implementation, continue through verification unless blocked.
@@ -108,6 +109,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - **Cross-Phase Consistency Check (L/XL)**: Before running tests, verify alignment across all artifacts: Contract → Plan → Implementation. Check: (1) every AC has a corresponding task, (2) every implemented file traces back to the plan, (3) no extra features beyond the contract scope slipped in.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
    - Use `references/verification-gates.md` for selecting tests, lint/type checks, E2E, review passes, and stop conditions.
+   - When using the bundled CLI, persist structured verification results (`checks`, `escalation`, `stop_conditions`) into state so handoff can reuse them.
    - Self-review the final diff for scope drift, existing-pattern fit, boundary cases, and unrelated changes before reporting completion.
 
 7. Deliver.
@@ -115,6 +117,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - **Knowledge Base Update**: After a successful delivery, identify 1-2 lessons learned (e.g., a tricky library behavior or a project-specific pitfall). Append these to the project's `MEMORY.md` using `templates/memory-entry-template.md`.
    - If blocked, report the blocker, evidence, and the next concrete action.
    - Use `templates/handoff-template.md` for the delivery report unless the environment already has a stricter handoff format.
+   - When using the bundled CLI, prefer generating handoff after verify so it can pull the latest delta and verification summary from state.
 
 ## Progress Tracking
 
@@ -231,3 +234,15 @@ If ECC tools or agents are installed, use them as implementation mechanisms, but
 - Read `references/verification-gates.md` when selecting verification depth, escalation triggers, or stop conditions.
 - Reuse `templates/lightweight-contract-template.md`, `templates/full-delivery-contract-template.md`, `templates/handoff-gate-checklist-template.md`, `templates/handoff-template.md`, and `templates/memory-entry-template.md` instead of rewriting these artifacts from scratch.
 - Read `examples/minimal-feature-delivery-example.md` when a user or teammate needs a concise end-to-end example of how this skill should be applied.
+
+## Bundled CLI
+
+This skill includes a local helper at `tools/bdo.py`. Use it when structured artifacts or stable machine-readable output are useful; skip it for trivial fast-path work.
+
+- `python3 tools/bdo.py init --objective "..."` initializes `.bdo.state.json`
+- `python3 tools/bdo.py classify --size M --risk medium --surface ui --surface api` records task shape and touched surfaces
+- `python3 tools/bdo.py contract`, `verify`, `handoff`, `memory`, `delta`, `status` generate or inspect workflow artifacts
+- Contract generation pre-fills surface-aware defaults from state, and state writes are atomic so repeated CLI calls do not leave half-written JSON
+- `memory` appends the generated entry back into state, and `handoff` reuses the latest memory and verification context
+- Add `--json` when another agent or script should consume the result programmatically
+- State shape is documented in `schema/bdo-state.schema.json`

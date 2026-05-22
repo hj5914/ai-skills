@@ -30,10 +30,21 @@ def list_block(items: list[str]) -> str:
     return "\n".join(f"- {item}" for item in items) if items else "- "
 
 
+def checklist_block(items: list[str]) -> str:
+    return "\n".join(f"- [ ] {item}" for item in items) if items else "- [ ] "
+
+
 def replace_section_placeholder(template: str, heading: str, replacement_block: str) -> str:
     lines = template.splitlines()
     for i, line in enumerate(lines):
-        if line == heading and i + 1 < len(lines) and lines[i + 1].lstrip().startswith("-"):
-            new_lines = lines[: i + 1] + replacement_block.splitlines() + lines[i + 2 :]
-            return "\n".join(new_lines) + ("\n" if template.endswith("\n") else "")
+        if line != heading:
+            continue
+        start = i + 1
+        end = start
+        while end < len(lines) and lines[end].lstrip().startswith("-"):
+            end += 1
+        if end == start:
+            continue
+        new_lines = lines[: i + 1] + replacement_block.splitlines() + lines[end:]
+        return "\n".join(new_lines) + ("\n" if template.endswith("\n") else "")
     return template

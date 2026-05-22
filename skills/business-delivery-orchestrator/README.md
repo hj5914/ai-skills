@@ -53,7 +53,8 @@ agents/openai.yaml
 3. `L/XL` 任务复用 `templates/full-delivery-contract-template.md`，必要时参考 `references/delivery-contract.md`。
 4. 交付时复用 `templates/handoff-gate-checklist-template.md`、`templates/handoff-template.md` 和 `templates/memory-entry-template.md`。
 5. 不熟悉时先看 `examples/minimal-feature-delivery-example.md`。
-6. 如果想减少手工复制模板，可直接用 `python3 tools/bdo.py` 驱动本地产物生成；`classify` 支持重复传入 `--surface` 标记改动面，`verify` 与 `handoff` 会共享 state 中的验证摘要。
+6. 如果想减少手工复制模板，可直接用 `python3 tools/bdo.py` 驱动本地产物生成；`classify` 支持重复传入 `--surface` 标记改动面，`contract` 会据此预填默认块，`verify` 与 `handoff` 会共享 state 中的验证摘要，`memory` 会把交付经验回写到 state，state 写入采用原子替换避免半写入 JSON。
+7. 如果要让其他 agent 或脚本消费结果，可加 `--json` 获取统一结构化输出。
 
 ## 备注
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 STATE_FILE_NAME = ".bdo.state.json"
 VALID_SIZES = {"XS", "S", "M", "L", "XL"}
@@ -43,7 +45,12 @@ def default_state() -> dict:
 def load_state(path: Path) -> dict:
     if not path.exists():
         return default_state()
-    state = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"BDO state file is invalid JSON at {path}; rerun `init` or remove the corrupted file"
+        ) from exc
     validate_state(state)
     return state
 
@@ -51,7 +58,11 @@ def load_state(path: Path) -> dict:
 def save_state(path: Path, state: dict) -> None:
     validate_state(state)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    content = json.dumps(state, ensure_ascii=False, indent=2) + "\n"
+    with NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+    os.replace(tmp_path, path)
 
 
 def set_phase(state: dict, phase: str) -> dict:
