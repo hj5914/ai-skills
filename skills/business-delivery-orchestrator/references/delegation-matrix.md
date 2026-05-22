@@ -121,10 +121,10 @@ Task:
 Shared contract:
 [relevant excerpt]
 
-Scope:
-- Read:
-- Write:
-- Do not touch:
+Scope (Principle of Least Privilege):
+- Read: [Explicit list of allowed files. Do not discover globally.]
+- Write: [Explicit list of allowed files.]
+- Do not touch: [Any overlapping/risky files.]
 
 Return:
 ## Result

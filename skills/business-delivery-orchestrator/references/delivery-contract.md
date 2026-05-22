@@ -14,7 +14,7 @@ Behavior:
 - 
 
 Constraints (Constitution):
-- 
+- (Note: Global GEMINI.md rules always take precedence.)
 
 Non-goals:
 - 
@@ -44,7 +44,7 @@ Non-goals:
 - 
 
 Constraints (Constitution):
-- 
+- (Note: Constitution acts as a strict subset or temporary increment to project-wide GEMINI.md rules. Global security and architecture rules always take precedence.)
 
 Users and workflow:
 - Actor:

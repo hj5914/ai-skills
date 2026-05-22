@@ -45,6 +45,7 @@ Use this reference to choose verification depth and prepare handoff.
    - For CLI/API tasks, run representative commands or requests.
 
 5. Adversarial Review (Mandatory for L/XL):
+   - Execute via an independent, read-only Reviewer subagent to avoid creator's bias.
    - Identify 3 potential failure modes (concurrency, data loss, UI lag).
    - Document how they are addressed or why they are acceptable risks.
 

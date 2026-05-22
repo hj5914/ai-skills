@@ -38,13 +38,13 @@ Skip delivery-contract templates, subagent decisions, and detailed handoff secti
 
 Size the task before choosing process depth:
 
-| Size | Signals | Default path |
-|---|---|---|
-| XS | Read-only answer, docs/copy, one-file mechanical fix, no behavior risk | Answer or fast path |
-| S | 1-3 related files, known pattern, focused local check | Fast path |
-| M | 4-10 files, one boundary crossing, moderate ambiguity, meaningful tests | Lightweight contract, usually single-agent |
-| L | Full-stack flow, API/schema/data/permissions, new user workflow | Full contract, consider bounded delegation |
-| XL | Multiple services, release coordination, security/payment/migration risk, team handoff | Plan first; use references before execution |
+| Size | Signals | Hard Triggers (Force larger size) | Default path |
+|---|---|---|---|
+| XS | Read-only answer, docs/copy, one-file mechanical fix, no behavior risk | N/A | Answer or fast path |
+| S | 1-3 related files, known pattern, focused local check | N/A | Fast path |
+| M | 4-10 files, one boundary crossing, moderate ambiguity, meaningful tests | Auth logic, migration scripts | Lightweight contract, usually single-agent |
+| L | Full-stack flow, API/schema/data/permissions, new user workflow | Payment logic, public API change | Full contract, consider bounded delegation |
+| XL | Multiple services, release coordination, security/payment/migration risk, team handoff | Cross-repo coordination, irreversible actions | Plan first; use references before execution |
 
 When signals conflict, choose the heavier path only for the risky surface. Do not let a large file count alone turn a simple mechanical change into a product workflow.
 
@@ -83,11 +83,12 @@ When signals conflict, choose the heavier path only for the risky surface. Do no
    - **Micro-Tasking**: Break the plan into granular tasks that can be verified in ~5 minutes (Red-Green-Refactor cycle).
    - Prefer the repository's existing patterns.
    - Keep changes scoped to the delivery contract.
+   - **Contract Alignment**: After each sub-task, verify the implementation still aligns with the contract. If deviating, pause and update the contract delta before proceeding.
    - If subagents produce code or diffs, treat them as drafts. The primary agent reviews, adapts, and applies final changes.
    - If the user changes scope midstream, record the delta before continuing: added behavior, removed behavior, affected files/contracts, and verification impact.
 
 6. Verify.
-   - **Adversarial Review**: Before final delivery, perform a self-attack. Identify 3 potential failure modes in your implementation (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
+   - **Adversarial Review**: Before final delivery, perform a self-attack. Identify 3 potential failure modes in your implementation (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete. For L/XL tasks, execute this via an independent, read-only Reviewer subagent to avoid creator's bias.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
    - Use `references/verification-gates.md` for selecting tests, lint/type checks, E2E, review passes, and handoff criteria.
    - Self-review the final diff for scope drift, existing-pattern fit, boundary cases, and unrelated changes before reporting completion.
