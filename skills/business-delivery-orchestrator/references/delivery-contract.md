@@ -14,7 +14,7 @@ Behavior:
 - 
 
 Constraints (Constitution):
-- (Note: Global GEMINI.md, AGENT.md, or CLAUDE.md rules always take precedence.)
+- (Note: Global project-level instruction files (e.g., GEMINI.md, AGENT.md, CLAUDE.md) always take precedence.)
 
 Non-goals:
 - 
@@ -44,7 +44,7 @@ Non-goals:
 - 
 
 Constraints (Constitution):
-- (Note: Constitution acts as a strict subset or temporary increment to project-wide instruction files (GEMINI.md, AGENT.md, CLAUDE.md). Global security and architecture rules always take precedence.)
+- (Note: Constitution acts as a strict subset or temporary increment to project-wide instruction files (GEMINI.md, AGENT.md, CLAUDE.md, etc.). All project-level global rules always take precedence.)
 
 Users and workflow:
 - Actor:

@@ -10,7 +10,16 @@
 - **微任务化 (Micro-Tasking)**：引入 5 分钟准则，要求将任务拆解为可快速验证的原子单元，确保 TDD 节奏。
 - **对抗性评审 (Adversarial Review)**：针对 L/XL 任务，强制通过派生**独立 Reviewer 子代理**进行自我攻击，消除思维盲区。
 - **强制触发器 (Hard Triggers)**：明确规定涉及 Auth、支付、迁移等敏感逻辑时严禁走 Fast Path。
-- **宪法优先权**：明确任务级的 Constitution 是项目级全局规范（`GEMINI.md`, `AGENT.md`, `CLAUDE.md`）的严格子集。
+- **宪法优先权**：明确任务级的 Constitution 是项目级全局规范（如 `GEMINI.md`, `AGENT.md`, `CLAUDE.md` 等）的严格子集。
+
+## 多环境兼容性 (Harness Neutral)
+
+本 Skill 采用平台中立设计，可在以下主流环境及任何支持 Markdown 指令的 Agent 中生效：
+
+- **Codex / Gemini CLI**：支持原生 Subagent 调用，自动适配上下文预算。
+- **Claude Code**：支持 `Task` 指令和 `Confirm Word` 协议。
+- **Cursor / Copilot**：在单代理环境下，将“委派”自动降级为“角色化自我评审”，确保逻辑闭环。
+- **其他环境**：只要 Agent 能读取 `SKILL.md`，即可根据任务规模自动切换交付模式。
 
 ## 用途
 
