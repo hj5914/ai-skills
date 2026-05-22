@@ -255,5 +255,6 @@ This skill includes a local helper at `tools/bdo.py`. Use it when structured art
 - Contract generation pre-fills surface-aware defaults from state and detected constraints, `delta` writes a structural summary, and state writes are atomic so repeated CLI calls do not leave half-written JSON
 - `verify` supports `--evidence` and `--gap`, `memory` supports `--context` / `--lesson` / `--rule` / `--evidence`, and `handoff` reuses the latest delta plus verification evidence instead of recomputing from scratch
 - Basic hard-gate checks are enforced in the CLI: M/L/XL verification requires a contract, `auth`/`data` work requires a full contract, and handoff requires verification output
+- `classify` and `contract` emit a soft `quiz` reminder when the task is large or risky and no clarify quiz has been recorded yet
 - Add `--json` when another agent or script should consume the result programmatically
 - State shape is documented in `schema/bdo-state.schema.json`, including explicit `plan`, `implement`, and `review` phases plus review records for adversarial review tracking

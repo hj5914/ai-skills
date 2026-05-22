@@ -15,7 +15,7 @@ if str(TOOLS_DIR) not in sys.path:
 from core.handoff import render_handoff
 from core.contract import render_contract
 from core.memory import parse_memory_entry, render_memory_entry
-from core.quiz import build_clarify_quiz
+from core.quiz import build_clarify_quiz, clarify_warning
 from core.scan import run_impact_scan
 from core.state import default_state, load_state, normalize_state
 from core.templates import replace_section_placeholder
@@ -210,6 +210,12 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertGreaterEqual(len(quiz["questions"]), 3)
         self.assertIn("Permissions:", "\n".join(quiz["questions"]))
         self.assertIn("Resolved: reject mixed-status selections", contract)
+
+    def test_clarify_warning_triggers_for_large_or_risky_tasks(self) -> None:
+        self.assertIn(
+            "Consider running `quiz`",
+            clarify_warning(size="L", risk="high", surfaces=["ui"], has_quiz=False),
+        )
 
 
 if __name__ == "__main__":

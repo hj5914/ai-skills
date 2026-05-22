@@ -10,7 +10,7 @@ Choose the smallest contract that still prevents behavior drift:
 |---|---|
 | `XS/S` task, no meaningful behavior risk | No dedicated contract; fast path |
 | `M` task, one main boundary crossing, limited ambiguity | `templates/lightweight-contract-template.md` |
-| `L/XL` task, cross-functional workflow, shared API/data/UI truth needed | `templates/full-delivery-contract-template.md` |
+| `L/XL` task, cross-functional workflow, shared API/data/UI truth needed | `templates/full-delivery-contract-template.md` or bundled CLI `contract-what` / `contract-how` |
 
 Escalate from lightweight to full when frontend/backend/data/test boundaries need a shared source of truth.
 
@@ -27,6 +27,7 @@ Escalate from lightweight to full when frontend/backend/data/test boundaries nee
 3. Resolve ambiguity early.
    - Ask only when the missing answer affects product behavior, data safety, billing, permissions, or irreversible actions.
    - Make conservative assumptions when the repository pattern is obvious and the choice is easy to revise.
+   - When using the bundled CLI, `quiz` can draft candidate clarifying questions and record resolved assumptions for later contract reuse.
 
 4. Freeze shared behavior.
    - Lock names, API shapes, and acceptance criteria before splitting work across frontend/backend or primary/subagent boundaries.
@@ -83,6 +84,8 @@ For larger work, avoid jumping straight into implementation details:
    - Verification plan
 
 Confirm the WHAT pass before writing the HOW pass when the task has high product or integration risk.
+
+When using the bundled CLI, `contract-what` and `contract-how` generate these two passes as separate artifacts.
 
 ## Template Discipline
 

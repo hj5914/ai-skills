@@ -39,3 +39,13 @@ def build_clarify_quiz(*, objective: str, size: str, risk: str, surfaces: list[s
         "assumptions": assumptions,
         "resolved": resolved,
     }
+
+
+def clarify_warning(*, size: str, risk: str, surfaces: list[str], has_quiz: bool) -> str:
+    normalized_risk = risk.lower()
+    surface_set = set(surfaces)
+    if has_quiz:
+        return ""
+    if size in {"L", "XL"} or normalized_risk in {"high", "critical"} or surface_set & {"auth", "data", "external"}:
+        return "Consider running `quiz` before continuing so contract assumptions are explicit."
+    return ""

@@ -45,8 +45,8 @@ Use this file to choose verification depth, decide when to escalate review rigor
    - For CLI/API tasks, run representative commands or requests.
 
 5. Adversarial Review (Two-Stage for L/XL, self-review for M):
-   - **Stage 1 — Spec Compliance**: Verify the implementation matches the contract — nothing missing, nothing extra. Use an independent, read-only Reviewer subagent for L/XL tasks.
-   - **Stage 2 — Code Quality**: Inspect for correctness, performance, security, and maintainability. Use a separate Reviewer subagent (not the same one from Stage 1).
+   - **Stage 1 — Spec Compliance**: Verify the implementation matches the contract — nothing missing, nothing extra. Prefer an independent, read-only Reviewer subagent for L/XL tasks when the host environment supports it.
+   - **Stage 2 — Code Quality**: Inspect for correctness, performance, security, and maintainability. Prefer a separate Reviewer subagent (not the same one from Stage 1) when available.
    - Identify 3 potential failure modes (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
    - Document how they are addressed or why they are acceptable risks.
    - For M tasks, combine both stages into a single self-review pass.

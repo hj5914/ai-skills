@@ -16,7 +16,7 @@ if str(TOOLS_DIR) not in sys.path:
 from core.handoff import render_handoff
 from core.contract import render_contract
 from core.memory import parse_memory_entry, render_memory_entry
-from core.quiz import build_clarify_quiz
+from core.quiz import build_clarify_quiz, clarify_warning
 from core.scan import mine_constraints, run_impact_scan
 from core.state import (
     STATE_FILE_NAME,
@@ -54,6 +54,9 @@ def _emit(args: argparse.Namespace, *, command: str, state_path: Path | None = N
                 print(json.dumps(data, ensure_ascii=False, indent=2))
             else:
                 print(data)
+        warning = _extract_warning(data)
+        if warning:
+            print(f"warning: {warning}")
     return 0
 
 
@@ -89,7 +92,12 @@ def cmd_classify(args: argparse.Namespace) -> int:
         args,
         command="classify",
         state_path=state_path,
-        data={"size": args.size, "risk": args.risk, "surfaces": state["surfaces"]},
+        data={
+            "size": args.size,
+            "risk": args.risk,
+            "surfaces": state["surfaces"],
+            "warning": _clarify_warning(state),
+        },
     )
 
 
@@ -145,6 +153,7 @@ def cmd_contract(args: argparse.Namespace) -> int:
             "size": state.get("size", ""),
             "risk": state.get("risk", ""),
             "surfaces": state.get("surfaces", []),
+            "warning": _clarify_warning(state),
         },
     )
 
@@ -168,7 +177,13 @@ def cmd_contract_what(args: argparse.Namespace) -> int:
         command="contract-what",
         state_path=state_path,
         output_path=contract_path,
-        data={"mode": "what", "size": state.get("size", ""), "risk": state.get("risk", ""), "surfaces": state.get("surfaces", [])},
+        data={
+            "mode": "what",
+            "size": state.get("size", ""),
+            "risk": state.get("risk", ""),
+            "surfaces": state.get("surfaces", []),
+            "warning": _clarify_warning(state),
+        },
     )
 
 
@@ -195,7 +210,13 @@ def cmd_contract_how(args: argparse.Namespace) -> int:
         command="contract-how",
         state_path=state_path,
         output_path=contract_path,
-        data={"mode": "how", "size": state.get("size", ""), "risk": state.get("risk", ""), "surfaces": state.get("surfaces", [])},
+        data={
+            "mode": "how",
+            "size": state.get("size", ""),
+            "risk": state.get("risk", ""),
+            "surfaces": state.get("surfaces", []),
+            "warning": _clarify_warning(state),
+        },
     )
 
 
@@ -481,6 +502,22 @@ def _resolved_assumptions(state: dict) -> list[str]:
     if not result and isinstance(assumptions, list):
         result.extend([item for item in assumptions if isinstance(item, str)])
     return result
+
+
+def _clarify_warning(state: dict) -> str:
+    return clarify_warning(
+        size=str(state.get("size", "")),
+        risk=str(state.get("risk", "")),
+        surfaces=list(state.get("surfaces", [])),
+        has_quiz=bool(state.get("clarify_quiz", {}).get("questions")),
+    )
+
+
+def _extract_warning(data: dict | list | None) -> str:
+    if not isinstance(data, dict):
+        return ""
+    warning = data.get("warning", "")
+    return warning if isinstance(warning, str) else ""
 
 
 if __name__ == "__main__":
