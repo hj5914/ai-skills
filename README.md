@@ -41,7 +41,9 @@ SKILL_README_GUIDE.md
 skills/
   business-delivery-orchestrator/
     SKILL.md
+    examples/
     references/
+    templates/
     agents/
   gitlab-internal-access/
     SKILL.md

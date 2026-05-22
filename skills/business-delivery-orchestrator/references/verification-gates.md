@@ -1,6 +1,6 @@
-# Verification Gates
+# Verification Gates Reference
 
-Use this reference to choose verification depth and prepare handoff.
+Use this file to choose verification depth, decide when to escalate review rigor, and know when to stop instead of forcing completion. Reusable handoff artifacts live in `templates/`.
 
 ## Verification Depth
 
@@ -44,10 +44,12 @@ Use this reference to choose verification depth and prepare handoff.
    - Run dev server or browser checks when the task is UI-heavy and tooling is available.
    - For CLI/API tasks, run representative commands or requests.
 
-5. Adversarial Review (Mandatory for L/XL):
-   - Execute via an independent, read-only Reviewer subagent to avoid creator's bias.
-   - Identify 3 potential failure modes (concurrency, data loss, UI lag).
+5. Adversarial Review (Two-Stage for L/XL, self-review for M):
+   - **Stage 1 — Spec Compliance**: Verify the implementation matches the contract — nothing missing, nothing extra. Use an independent, read-only Reviewer subagent for L/XL tasks.
+   - **Stage 2 — Code Quality**: Inspect for correctness, performance, security, and maintainability. Use a separate Reviewer subagent (not the same one from Stage 1).
+   - Identify 3 potential failure modes (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
    - Document how they are addressed or why they are acceptable risks.
+   - For M tasks, combine both stages into a single self-review pass.
 
 6. Review:
    - Use self-review for small/medium changes.
@@ -58,7 +60,7 @@ Use this reference to choose verification depth and prepare handoff.
 Before reporting completion, check:
 - The diff matches the contract or documented delta.
 - No unrelated files or generated churn slipped in.
-- **Adversarial Review**: 3 failure modes identified and addressed (L/XL).
+- **Adversarial Review**: 3 failure modes identified and addressed (L/XL), via two-stage review: Spec Compliance then Code Quality.
 - Existing patterns, naming, and error handling were followed.
 - Boundary cases are covered: empty, invalid, unauthorized, loading, failure, and rollback where relevant.
 - Tests or manual checks exercise the changed behavior, not just implementation details.
@@ -82,34 +84,13 @@ Increase verification depth when:
 - Existing tests are absent around risky behavior.
 - A subagent or review found a concrete issue.
 
-## Handoff Gate (P0-P2 Implementation)
+## Handoff Artifacts
 
-- [ ] **Evidence**: Screenshot, log output, or test report provided.
-- [ ] **Residual Risk**: Clearly stated (e.g., "Not tested with X volume").
-- [ ] **Knowledge Update**: Identify 1-2 lessons learned (tricky library behavior, project pitfall). Append to `MEMORY.md`.
-- [ ] **Cleanup**: No debug logs, `TODO`s, or temporary files left behind. Merge branches/worktrees if used.
+Reuse these templates instead of rewriting delivery artifacts:
 
-## Handoff Format
-
-```markdown
-Changed:
-- 
-
-Verified:
-- 
-
-Not verified:
-- 
-
-Risks:
-- 
-
-Lessons Learned (Update MEMORY.md):
-- 
-
-Next:
-- 
-```
+- `templates/handoff-gate-checklist-template.md` for the final gate checklist
+- `templates/handoff-template.md` for the delivery report
+- `templates/memory-entry-template.md` for reusable lessons learned
 
 ## Stop Conditions
 

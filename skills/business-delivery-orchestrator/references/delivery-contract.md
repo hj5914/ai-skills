@@ -1,111 +1,47 @@
-# Delivery Contract
+# Delivery Contract Reference
 
-Use this template when a requirement crosses product, frontend, backend, data, or test boundaries. Keep it short enough to fit in the active context.
+Use this file to decide which contract artifact to use and how to keep it aligned during delivery. The actual reusable templates live in `templates/`.
 
-## Lightweight Contract
+## Template Selection
 
-Use this version before the full template when the task is moderate but not complex:
+Choose the smallest contract that still prevents behavior drift:
 
-```markdown
-Goal:
-- 
+| Situation | Use |
+|---|---|
+| `XS/S` task, no meaningful behavior risk | No dedicated contract; fast path |
+| `M` task, one main boundary crossing, limited ambiguity | `templates/lightweight-contract-template.md` |
+| `L/XL` task, cross-functional workflow, shared API/data/UI truth needed | `templates/full-delivery-contract-template.md` |
 
-Behavior:
-- 
+Escalate from lightweight to full when frontend/backend/data/test boundaries need a shared source of truth.
 
-Constraints (Constitution):
-- (Note: Global project-level instruction files (e.g., GEMINI.md, AGENT.md, CLAUDE.md) always take precedence.)
+## Contract Workflow
 
-Non-goals:
-- 
+1. Run a quick impact scan.
+   - Check which files import the touched module or share the schema.
+   - Confirm whether the task size still matches reality.
 
-Acceptance:
-- [ ] 
-- [ ] 
+2. Mine constraints before filling the contract.
+   - Read project config and instruction files such as `package.json`, `tsconfig.json`, `CLAUDE.md`, `AGENT.md`, `GEMINI.md`, and local repo docs.
+   - Record framework, language, database, and key library constraints before planning implementation.
 
-Verification:
-- 
+3. Resolve ambiguity early.
+   - Ask only when the missing answer affects product behavior, data safety, billing, permissions, or irreversible actions.
+   - Make conservative assumptions when the repository pattern is obvious and the choice is easy to revise.
 
-Assumptions:
-- 
-```
-
-Escalate to the full template only when frontend/backend/data/test boundaries need a shared contract.
-
-## Contract Template
-
-```markdown
-## Delivery Contract
-
-Goal:
-- 
-
-Non-goals:
-- 
-
-Constraints (Constitution):
-- (Note: Constitution acts as a strict subset or temporary increment to project-wide instruction files (GEMINI.md, AGENT.md, CLAUDE.md, etc.). All project-level global rules always take precedence.)
-
-Users and workflow:
-- Actor:
-- Trigger:
-- Success path:
-- Failure/empty/loading states:
-
-Data and API:
-- Inputs:
-- Outputs:
-- Validation:
-- Error behavior:
-- Permissions:
-
-Frontend contract:
-- Views/components:
-- State transitions:
-- Accessibility:
-- Responsive behavior:
-
-Backend contract:
-- Endpoints/functions:
-- Persistence:
-- Side effects:
-- Observability:
-
-Acceptance criteria:
-- [ ] 
-- [ ] 
-- [ ] 
-
-Verification plan:
-- Unit:
-- Integration:
-- E2E/manual:
-- Build/lint/typecheck:
-
-Risks and assumptions:
-- 
-```
+4. Freeze shared behavior.
+   - Lock names, API shapes, and acceptance criteria before splitting work across frontend/backend or primary/subagent boundaries.
+   - Treat the contract as the shared source of truth during implementation and review.
 
 ## Contract Rules
 
 - **Constitution Mining**: Always read project config files (`package.json`, `tsconfig.json`, etc.) before filling the Constraints section to align with existing standards.
+- Global project-level rules always take precedence over task-level contract notes.
 - Freeze names and shapes before splitting frontend/backend work.
 - Treat API, schema, and acceptance criteria as shared truth.
 - If implementation reveals the contract is wrong, update the contract first, then adjust code.
 - Do not let each role invent its own version of product behavior.
 - Keep contracts proportional. A small task should not grow a full product spec just because a template exists.
 - Prefer existing product and codebase patterns over newly invented behavior.
-
-## Ambiguity Handling
-
-Ask the user only when the missing answer changes product behavior, data safety, billing, permissions, or irreversible actions.
-
-Make reasonable assumptions when:
-- The repository has an obvious existing pattern.
-- The missing detail is presentational and easy to revise.
-- The choice can be implemented conservatively without narrowing future options.
-
-State assumptions in the delivery report when they affect behavior.
 
 ## Delta Handling
 
@@ -131,9 +67,27 @@ Impact:
 
 Use a delta when the original contract remains mostly true. Rewrite the contract only when the goal, user workflow, or data/API shape changes enough that the old contract would mislead implementers.
 
+## Two-Pass Contract For L/XL
+
+For larger work, avoid jumping straight into implementation details:
+
+1. WHAT pass:
+   - Goal
+   - Behavior
+   - Non-goals
+   - Acceptance criteria
+
+2. HOW pass:
+   - Data/API
+   - Frontend/backend contract
+   - Verification plan
+
+Confirm the WHAT pass before writing the HOW pass when the task has high product or integration risk.
+
 ## Template Discipline
 
 - Leave irrelevant sections out instead of filling them with "N/A".
 - Keep acceptance criteria testable and few.
 - Do not convert obvious implementation chores into product ceremony.
 - Prefer repository-derived behavior over invented requirements.
+- Reuse `templates/lightweight-contract-template.md` and `templates/full-delivery-contract-template.md` instead of copying contract skeletons into this reference file.
