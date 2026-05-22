@@ -244,9 +244,10 @@ This skill includes a local helper at `tools/bdo.py`. Use it when structured art
 - `python3 tools/bdo.py phase plan|implement|review|verify` explicitly advances the tracked workflow phase when you want state to mirror the documented progress block
 - `python3 tools/bdo.py scan --target billing --target InvoiceTable` records a heuristic impact scan for sizing using path, import/use, and text fallback matches
 - `python3 tools/bdo.py mine` records lightweight repo constraints from supported config files
+- `python3 tools/bdo.py review --kind spec|quality --status DONE|DONE_WITH_CONCERNS|NEEDS_CONTEXT|BLOCKED` records a lightweight adversarial review pass for later handoff reuse
 - `python3 tools/bdo.py contract`, `verify`, `handoff`, `memory`, `delta`, `status` generate or inspect workflow artifacts
 - Contract generation pre-fills surface-aware defaults from state and detected constraints, `delta` writes a structural summary, and state writes are atomic so repeated CLI calls do not leave half-written JSON
 - `verify` supports `--evidence` and `--gap`, `memory` supports `--context` / `--lesson` / `--rule` / `--evidence`, and `handoff` reuses the latest delta plus verification evidence instead of recomputing from scratch
 - Basic hard-gate checks are enforced in the CLI: M/L/XL verification requires a contract, `auth`/`data` work requires a full contract, and handoff requires verification output
 - Add `--json` when another agent or script should consume the result programmatically
-- State shape is documented in `schema/bdo-state.schema.json`, including explicit `plan`, `implement`, and `review` phases for progress tracking
+- State shape is documented in `schema/bdo-state.schema.json`, including explicit `plan`, `implement`, and `review` phases plus review records for adversarial review tracking

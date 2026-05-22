@@ -105,6 +105,15 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             "evidence": ["pytest tests/foo_test.py"],
             "gaps": ["no e2e env"],
         }
+        state["reviews"] = [
+            {
+                "kind": "spec",
+                "status": "DONE",
+                "focus": "contract alignment",
+                "findings": ["No scope drift found"],
+                "evidence": ["reviewed contract and diff"],
+            }
+        ]
         state["memory"] = [
             "## 2026-05-22 - Smoke handoff\n\n- Context: Smoke handoff\n- Lesson: Guard empty states\n- Actionable rule for future work: Always cover loading, empty, error\n- Evidence: pytest tests/foo_test.py"
         ]
@@ -113,6 +122,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
 
         self.assertIn("pytest tests/foo_test.py", rendered)
         self.assertIn("no e2e env", rendered)
+        self.assertIn("contract alignment", rendered)
         self.assertNotIn("\n- \n", rendered)
         self.assertNotIn("Not verified:\n- \n", rendered)
 

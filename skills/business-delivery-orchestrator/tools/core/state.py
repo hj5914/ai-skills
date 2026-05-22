@@ -39,6 +39,7 @@ def default_state() -> dict:
             "evidence": [],
             "gaps": [],
         },
+        "reviews": [],
         "impact_scan": {
             "targets": [],
             "matched_files": [],
@@ -94,6 +95,22 @@ def normalize_state(state: dict) -> dict:
         merged_summary.update(summary)
     merged["verification_summary"] = merged_summary
 
+    normalized_reviews = []
+    for item in state.get("reviews", []):
+        if not isinstance(item, dict):
+            normalized_reviews.append(item)
+            continue
+        normalized_reviews.append(
+            {
+                "kind": item.get("kind", ""),
+                "status": item.get("status", ""),
+                "focus": item.get("focus", ""),
+                "findings": item.get("findings", []),
+                "evidence": item.get("evidence", []),
+            }
+        )
+    merged["reviews"] = normalized_reviews
+
     normalized_delta = []
     for item in state.get("delta", []):
         if not isinstance(item, dict):
@@ -131,6 +148,7 @@ def validate_state(state: dict) -> None:
         "handoff_path": str,
         "surfaces": list,
         "verification_summary": dict,
+        "reviews": list,
         "impact_scan": dict,
         "constraints_detected": list,
         "delta": list,
@@ -165,6 +183,16 @@ def validate_state(state: dict) -> None:
     for key in ("checks", "escalation", "stop_conditions", "evidence", "gaps"):
         if not isinstance(summary[key], list) or not all(isinstance(v, str) for v in summary[key]):
             raise ValueError(f"BDO state verification_summary.{key} must be a list of strings")
+
+    for idx, item in enumerate(state["reviews"]):
+        if not isinstance(item, dict):
+            raise ValueError(f"BDO state reviews[{idx}] must be an object")
+        for key in ("kind", "status", "focus"):
+            if key not in item or not isinstance(item[key], str):
+                raise ValueError(f"BDO state reviews[{idx}].{key} must be a string")
+        for key in ("findings", "evidence"):
+            if key not in item or not isinstance(item[key], list) or not all(isinstance(v, str) for v in item[key]):
+                raise ValueError(f"BDO state reviews[{idx}].{key} must be a list of strings")
 
     scan = state["impact_scan"]
     if set(scan.keys()) != {"targets", "matched_files", "summary", "recommended_size", "notes"}:

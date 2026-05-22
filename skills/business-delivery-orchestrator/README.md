@@ -53,7 +53,7 @@ agents/openai.yaml
 3. `L/XL` 任务复用 `templates/full-delivery-contract-template.md`，必要时参考 `references/delivery-contract.md`。
 4. 交付时复用 `templates/handoff-gate-checklist-template.md`、`templates/handoff-template.md` 和 `templates/memory-entry-template.md`。
 5. 不熟悉时先看 `examples/minimal-feature-delivery-example.md`。
-6. 如果想减少手工复制模板，可直接用 `python3 tools/bdo.py` 驱动本地产物生成；`classify` 支持重复传入 `--surface` 标记改动面，`phase` 可显式记录 `plan` / `implement` / `review` / `verify` 等阶段，`scan` 支持重复传入 `--target` 记录启发式 impact scan，优先匹配路径和 import/use 引用，再回退到文本匹配，`mine` 会从支持的配置文件中提取轻量 constraints，`delta` 会自动生成结构化 summary，`contract` 会据此预填默认块和已检测 constraints，`verify` 支持 `--evidence` / `--gap` 并把真实验证证据写入 state，`handoff` 会优先消费最新 delta 和验证证据，`memory` 支持 `--context` / `--lesson` / `--rule` / `--evidence` 并把交付经验回写到 state，state 写入采用原子替换避免半写入 JSON。
+6. 如果想减少手工复制模板，可直接用 `python3 tools/bdo.py` 驱动本地产物生成；`classify` 支持重复传入 `--surface` 标记改动面，`phase` 可显式记录 `plan` / `implement` / `review` / `verify` 等阶段，`scan` 支持重复传入 `--target` 记录启发式 impact scan，优先匹配路径和 import/use 引用，再回退到文本匹配，`mine` 会从支持的配置文件中提取轻量 constraints，`review` 可以记录 spec/quality 两类轻量 adversarial review 结果，`delta` 会自动生成结构化 summary，`contract` 会据此预填默认块和已检测 constraints，`verify` 支持 `--evidence` / `--gap` 并把真实验证证据写入 state，`handoff` 会优先消费最新 delta、验证证据和 review 记录，`memory` 支持 `--context` / `--lesson` / `--rule` / `--evidence` 并把交付经验回写到 state，state 写入采用原子替换避免半写入 JSON。
 7. CLI 现在会做最小 hard-gate 校验：`auth/data` 任务要求 full contract，`M/L/XL` 任务在 verify 前必须先生成 contract，handoff 前必须先生成 verify 产物。
 8. 如果要让其他 agent 或脚本消费结果，可加 `--json` 获取统一结构化输出。
 

@@ -207,6 +207,22 @@ def cmd_memory(args: argparse.Namespace) -> int:
     )
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    state_path = args.state or Path.cwd() / STATE_FILE_NAME
+    state = load_state(state_path)
+    review = {
+        "kind": args.kind,
+        "status": args.status,
+        "focus": args.focus or "",
+        "findings": args.finding or [],
+        "evidence": args.evidence or [],
+    }
+    state.setdefault("reviews", []).append(review)
+    set_phase(state, "review")
+    save_state(state_path, state)
+    return _emit(args, command="review", state_path=state_path, data=review)
+
+
 def cmd_delta(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
@@ -305,6 +321,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--rule")
     p.add_argument("--evidence")
     p.set_defaults(func=cmd_memory)
+
+    p = sub.add_parser("review")
+    p.add_argument("--kind", choices=["spec", "quality"], required=True)
+    p.add_argument("--status", choices=["DONE", "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED"], required=True)
+    p.add_argument("--focus", help="Review focus area")
+    p.add_argument("--finding", action="append", help="Review finding")
+    p.add_argument("--evidence", action="append", help="Evidence or command that informed the review")
+    p.set_defaults(func=cmd_review)
 
     p = sub.add_parser("delta")
     p.add_argument("--added", action="append")

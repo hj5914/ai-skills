@@ -13,6 +13,7 @@
     "handoff_path",
     "surfaces",
     "verification_summary",
+    "reviews",
     "impact_scan",
     "constraints_detected",
     "delta",
@@ -84,6 +85,27 @@
         "gaps": {
           "type": "array",
           "items": { "type": "string" }
+        }
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "status", "focus", "findings", "evidence"],
+        "properties": {
+          "kind": { "type": "string" },
+          "status": { "type": "string" },
+          "focus": { "type": "string" },
+          "findings": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
         }
       }
     },

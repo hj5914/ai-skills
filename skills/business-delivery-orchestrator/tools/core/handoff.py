@@ -33,6 +33,7 @@ def render_handoff(state: dict) -> str:
     escalation = summary.get("escalation", [])
     latest_delta = state.get("delta", [])[-1] if state.get("delta") else None
     memory = state.get("memory", [])
+    reviews = state.get("reviews", [])
 
     changed = []
     if latest_delta:
@@ -59,13 +60,28 @@ def render_handoff(state: dict) -> str:
 
     risks = [f"size={state.get('size', '')}", f"risk={state.get('risk', '')}"]
     next_steps = escalation[:2] if escalation else ["Review residual risks and close the task"]
+    review_notes = []
+    for review in reviews[-2:]:
+        if not isinstance(review, dict):
+            continue
+        kind = review.get("kind", "review")
+        status = review.get("status", "")
+        focus = review.get("focus", "")
+        findings = review.get("findings", [])
+        note = " | ".join(part for part in [kind, status, focus] if part)
+        if findings:
+            note = f"{note}: {'; '.join(findings[:2])}" if note else "; ".join(findings[:2])
+        if note:
+            review_notes.append(note)
+    verified_entries = []
+    verified_entries.extend(checks[:4])
+    verified_entries.extend(evidence[:4])
+    verified_entries.extend(review_notes[:4])
 
     if changed:
         template = replace_section_placeholder(template, "Changed:", list_block(changed))
-    if checks:
-        template = replace_section_placeholder(template, "Verified:", list_block(checks[:4]))
-    if evidence:
-        template = replace_section_placeholder(template, "Verified:", list_block(evidence[:4]))
+    if verified_entries:
+        template = replace_section_placeholder(template, "Verified:", list_block(verified_entries))
     not_verified = gaps[:2] if gaps else ["No explicit gaps recorded"]
     template = replace_section_placeholder(template, "Not verified:", list_block(not_verified))
     template = replace_section_placeholder(template, "Lessons Learned (Update MEMORY.md):", list_block(lessons))
