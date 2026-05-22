@@ -31,6 +31,7 @@ _ensure_contract_allowed = BDO_MODULE._ensure_contract_allowed
 _ensure_contract_exists = BDO_MODULE._ensure_contract_exists
 _ensure_verification_complete = BDO_MODULE._ensure_verification_complete
 _invalidate_downstream_artifacts_if_contract_changed = BDO_MODULE._invalidate_downstream_artifacts_if_contract_changed
+_invalidate_handoff_if_upstream_changed = BDO_MODULE._invalidate_handoff_if_upstream_changed
 build_resume_summary = BDO_MODULE.build_resume_summary
 _build_blocked_recovery = BDO_MODULE._build_blocked_recovery
 build_parser = BDO_MODULE.build_parser
@@ -362,6 +363,14 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(state["verification_path"], "bdo.verify.md")
         self.assertEqual(state["handoff_path"], "bdo.handoff.md")
         self.assertEqual(state["verification_summary"]["evidence"], ["pytest tests/foo_test.py"])
+
+    def test_upstream_change_invalidates_existing_handoff(self) -> None:
+        state = default_state()
+        state["handoff_path"] = "bdo.handoff.md"
+
+        _invalidate_handoff_if_upstream_changed(state)
+
+        self.assertEqual(state["handoff_path"], "")
 
     def test_resume_summary_requests_how_after_what_for_large_tasks(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

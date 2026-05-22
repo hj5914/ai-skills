@@ -276,6 +276,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     report_path = args.output or Path.cwd() / "bdo.verify.md"
     _write_text(report_path, report)
     state["verification_path"] = str(report_path)
+    _invalidate_handoff_if_upstream_changed(state)
     save_state(state_path, state)
     return _emit(
         args,
@@ -349,6 +350,7 @@ def cmd_review(args: argparse.Namespace) -> int:
         "evidence": args.evidence or [],
     }
     state.setdefault("reviews", []).append(review)
+    _invalidate_handoff_if_upstream_changed(state)
     set_phase(state, "review")
     save_state(state_path, state)
     return _emit(args, command="review", state_path=state_path, data=review)
@@ -366,6 +368,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
         "summary": summary,
     }
     state.setdefault("delta", []).append(delta)
+    _invalidate_handoff_if_upstream_changed(state)
     save_state(state_path, state)
     return _emit(args, command="delta", state_path=state_path, data=delta)
 
@@ -588,6 +591,10 @@ def _invalidate_downstream_artifacts_if_contract_changed(
     state["handoff_path"] = ""
     state["reviews"] = []
     state["verification_summary"] = default_state()["verification_summary"]
+
+
+def _invalidate_handoff_if_upstream_changed(state: dict) -> None:
+    state["handoff_path"] = ""
 
 
 def build_resume_summary(state: dict) -> dict:
