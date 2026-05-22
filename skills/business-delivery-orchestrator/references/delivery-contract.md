@@ -88,6 +88,7 @@ Risks and assumptions:
 
 ## Contract Rules
 
+- **Constitution Mining**: Always read project config files (`package.json`, `tsconfig.json`, etc.) before filling the Constraints section to align with existing standards.
 - Freeze names and shapes before splitting frontend/backend work.
 - Treat API, schema, and acceptance criteria as shared truth.
 - If implementation reveals the contract is wrong, update the contract first, then adjust code.

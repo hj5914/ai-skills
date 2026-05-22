@@ -31,6 +31,7 @@ Stay single-agent when any are true:
 ## Cost Controls
 
 - Prefer one read-only helper over multiple implementation helpers.
+- **Physical Isolation**: When environment permits (e.g., local shell access), use `git worktree` or temporary branches for subagents to prevent workspace pollution.
 - Prefer sequential local work over parallel work when integration would take longer than implementation.
 - Reuse already gathered context instead of asking subagents to rediscover it.
 - Give subagents excerpts, not entire plans, when an excerpt is enough.
@@ -93,12 +94,13 @@ Backend subagent owns backend files.
 Frontend subagent owns frontend files.
 Test/review subagent is read-only or owns test files.
 Primary integrates and verifies.
+Prefer temporary branches for subagents.
 ```
 
 Very high task:
 ```text
 Create a plan and ask for approval before large execution.
-Prefer isolated worktrees or mission-based orchestration.
+Mandatory isolated worktrees or mission-based orchestration.
 Primary agent merges, resolves conflicts, and verifies.
 ```
 

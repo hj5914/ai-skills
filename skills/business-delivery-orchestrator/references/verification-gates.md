@@ -82,6 +82,13 @@ Increase verification depth when:
 - Existing tests are absent around risky behavior.
 - A subagent or review found a concrete issue.
 
+## Handoff Gate (P0-P2 Implementation)
+
+- [ ] **Evidence**: Screenshot, log output, or test report provided.
+- [ ] **Residual Risk**: Clearly stated (e.g., "Not tested with X volume").
+- [ ] **Knowledge Update**: Identify 1-2 lessons learned (tricky library behavior, project pitfall). Append to `MEMORY.md`.
+- [ ] **Cleanup**: No debug logs, `TODO`s, or temporary files left behind. Merge branches/worktrees if used.
+
 ## Handoff Format
 
 ```markdown
@@ -95,6 +102,9 @@ Not verified:
 - 
 
 Risks:
+- 
+
+Lessons Learned (Update MEMORY.md):
 - 
 
 Next:

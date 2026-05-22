@@ -51,12 +51,14 @@ When signals conflict, choose the heavier path only for the risky surface. Do no
 ## Workflow
 
 1. Classify the request.
+   - **Impact Scan**: Before sizing, perform a quick "read-only" scan of the project's dependency graph. Identify how many files import the target module or share the data schema. Use this to confirm the Size and Hard Triggers.
    - Identify user goal, affected surfaces, expected deliverable, deadline pressure, and ambiguity.
    - If the request is only analysis or brainstorming, stop before implementation and return the analysis.
    - If the request qualifies for the fast path, use the fast path and avoid the full workflow.
    - If the request is implementation, continue through verification unless blocked.
 
 2. Build a delivery contract before coding.
+   - **Constitution Mining**: Automatically extract technical constraints by reading project config files (e.g., `package.json`, `tsconfig.json`, `.eslintrc`). Add these to the `Constraints` section to ensure compliance with the existing tech stack.
    - **Clarify Quiz**: Before drafting the contract, identify 3-5 technical ambiguities or boundary risks (e.g., edge cases, legacy impact). Present them to the user as a structured "quiz" to resolve unknowns early.
    - Capture goal, non-goals, user flow, data/API contract, UI states, acceptance criteria, risks, and verification commands.
    - For M tasks, use this lightweight contract inline:
@@ -72,6 +74,7 @@ When signals conflict, choose the heavier path only for the risky surface. Do no
 3. Decide whether to delegate.
    - Default: no subagents.
    - Delegate only if the delegation matrix says the task is medium/high complexity and the work can be isolated.
+   - **Branch Isolation**: If delegating write access and the environment supports it (e.g., Claude Code, local Shell), prefer creating a temporary branch or worktree for the subagent to ensure physical code isolation.
    - Read `references/delegation-matrix.md` before spawning any subagent or recommending a multi-agent plan.
 
 4. Plan file ownership.
@@ -95,6 +98,7 @@ When signals conflict, choose the heavier path only for the risky surface. Do no
 
 7. Deliver.
    - Report what changed, what was verified, known residual risks, and any follow-up that is truly useful.
+   - **Knowledge Base Update**: After a successful delivery, identify 1-2 lessons learned (e.g., a tricky library behavior or a project-specific pitfall). Append these to the project's `MEMORY.md` to prevent future errors.
    - If blocked, report the blocker, evidence, and the next concrete action.
    - Use a short handoff shape when helpful:
      ```markdown
