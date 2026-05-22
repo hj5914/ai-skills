@@ -13,6 +13,19 @@ Use this reference to choose verification depth and prepare handoff.
 | Data/schema | Migration test or dry-run, rollback reasoning | Backup/compatibility review |
 | Auth/security/payment | Focused tests plus independent review | Threat review, audit logs, negative tests |
 
+## Quick Selection Table
+
+| Surface changed | Minimum useful verification |
+|---|---|
+| Copy/config only | Inspect diff; run formatter or config validation when available |
+| UI component | Render or component test; check loading/empty/error states if touched |
+| API endpoint | Focused unit/integration test or representative request |
+| Shared utility | Existing tests for direct callers plus one regression case |
+| Database migration | Apply/dry-run migration; reason about rollback and compatibility |
+| Permissions/auth | Positive and negative cases; verify denial behavior |
+| External API/network | Timeout/error behavior; no-credential fallback or mocked test |
+| Performance-sensitive path | Inspect complexity and run targeted benchmark/profile if available |
+
 ## Gate Sequence
 
 1. Static sanity:
@@ -35,6 +48,16 @@ Use this reference to choose verification depth and prepare handoff.
    - Use self-review for small/medium changes.
    - Use subagent or specialist review for high-risk security, data, performance, or accessibility changes.
 
+## Self-Review Checklist
+
+Before reporting completion, check:
+- The diff matches the contract or documented delta.
+- No unrelated files or generated churn slipped in.
+- Existing patterns, naming, and error handling were followed.
+- Boundary cases are covered: empty, invalid, unauthorized, loading, failure, and rollback where relevant.
+- Tests or manual checks exercise the changed behavior, not just implementation details.
+- Remaining risks are explicit in the handoff.
+
 ## Low-Risk Shortcut
 
 For small changes, verification may be:
@@ -56,19 +79,19 @@ Increase verification depth when:
 ## Handoff Format
 
 ```markdown
-Completed:
-- 
-
 Changed:
 - 
 
 Verified:
 - 
 
-Not run:
-- [command/check] - [reason]
+Not verified:
+- 
 
-Risks or follow-up:
+Risks:
+- 
+
+Next:
 - 
 ```
 

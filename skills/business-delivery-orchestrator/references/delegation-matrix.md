@@ -6,10 +6,13 @@ Use this reference before creating subagents or recommending multi-agent executi
 
 | Level | Signals | Default execution |
 |---|---|---|
+| XS | Read-only answer, docs/copy, one-file mechanical fix, no behavior risk | Answer or fast path |
 | Small | 1-3 files, known pattern, no API/schema change, low risk | Single primary agent |
 | Medium | 4-10 files, one boundary crossing, moderate tests, some unknowns | Primary agent plus optional explorer/reviewer |
 | High | Full-stack flow, data/API contract, migrations, UI states, integration tests | Primary agent plus bounded specialist subagents |
 | Very high | Multiple services, high-risk security/data/payment behavior, conflicting ownership | Plan first; consider worktrees or external orchestration |
+
+Use the higher level when a risky surface appears even if the file count is low: auth, permissions, billing, data migration, destructive operations, public API changes, or irreversible user-visible behavior.
 
 ## Delegation Decision
 
@@ -58,6 +61,18 @@ If a task was classified too small and risk appears:
 | Explorer | Locate code paths, map dependencies, answer concrete questions | Read-only |
 | Reviewer | Find bugs in final diff | Read-only |
 
+## Role Boundaries
+
+- Explorer: one question, one answer, no implementation suggestions unless asked.
+- Product: clarify behavior and acceptance criteria; do not invent scope expansion.
+- Frontend: owns view/component/state files listed in the prompt.
+- Backend: owns endpoint/domain/persistence files listed in the prompt.
+- Test: owns test files or returns a test matrix; do not change production code unless explicitly assigned.
+- Security/performance/accessibility reviewer: inspect the changed behavior and report concrete risks with file references.
+- Worker: implement a bounded slice; never edit files outside the assigned write set without asking.
+
+Avoid parallel workers when their output must be merged into the same file. Use one owner for that file and make other agents read-only reviewers.
+
 ## Recommended Patterns
 
 Small task:
@@ -86,6 +101,14 @@ Create a plan and ask for approval before large execution.
 Prefer isolated worktrees or mission-based orchestration.
 Primary agent merges, resolves conflicts, and verifies.
 ```
+
+## Stop Delegating
+
+Collapse back to primary-agent execution when:
+- Subagent outputs conflict with the contract.
+- Integration cost exceeds remaining implementation cost.
+- The same context must be repeated to multiple agents.
+- The next meaningful step is blocked on a single design decision.
 
 ## Prompt Template
 

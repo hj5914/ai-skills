@@ -34,6 +34,20 @@ Fast path steps:
 
 Skip delivery-contract templates, subagent decisions, and detailed handoff sections on the fast path unless a risk appears.
 
+## Task Sizing
+
+Size the task before choosing process depth:
+
+| Size | Signals | Default path |
+|---|---|---|
+| XS | Read-only answer, docs/copy, one-file mechanical fix, no behavior risk | Answer or fast path |
+| S | 1-3 related files, known pattern, focused local check | Fast path |
+| M | 4-10 files, one boundary crossing, moderate ambiguity, meaningful tests | Lightweight contract, usually single-agent |
+| L | Full-stack flow, API/schema/data/permissions, new user workflow | Full contract, consider bounded delegation |
+| XL | Multiple services, release coordination, security/payment/migration risk, team handoff | Plan first; use references before execution |
+
+When signals conflict, choose the heavier path only for the risky surface. Do not let a large file count alone turn a simple mechanical change into a product workflow.
+
 ## Workflow
 
 1. Classify the request.
@@ -44,7 +58,15 @@ Skip delivery-contract templates, subagent decisions, and detailed handoff secti
 
 2. Build a delivery contract before coding.
    - Capture goal, non-goals, user flow, data/API contract, UI states, acceptance criteria, risks, and verification commands.
-   - Keep it concise in the working context. Use `references/delivery-contract.md` when the requirement is ambiguous, cross-functional, or full-stack.
+   - For M tasks, use this lightweight contract inline:
+     ```markdown
+     Goal:
+     Behavior:
+     Acceptance:
+     Verification:
+     Assumptions:
+     ```
+   - Keep it concise in the working context. Use `references/delivery-contract.md` when the requirement is ambiguous, cross-functional, full-stack, or L/XL.
 
 3. Decide whether to delegate.
    - Default: no subagents.
@@ -60,14 +82,24 @@ Skip delivery-contract templates, subagent decisions, and detailed handoff secti
    - Prefer the repository's existing patterns.
    - Keep changes scoped to the delivery contract.
    - If subagents produce code or diffs, treat them as drafts. The primary agent reviews, adapts, and applies final changes.
+   - If the user changes scope midstream, record the delta before continuing: added behavior, removed behavior, affected files/contracts, and verification impact.
 
 6. Verify.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
    - Use `references/verification-gates.md` for selecting tests, lint/type checks, E2E, review passes, and handoff criteria.
+   - Self-review the final diff for scope drift, existing-pattern fit, boundary cases, and unrelated changes before reporting completion.
 
 7. Deliver.
    - Report what changed, what was verified, known residual risks, and any follow-up that is truly useful.
    - If blocked, report the blocker, evidence, and the next concrete action.
+   - Use a short handoff shape when helpful:
+     ```markdown
+     Changed:
+     Verified:
+     Not verified:
+     Risks:
+     Next:
+     ```
 
 ## Delegation Policy
 
@@ -84,6 +116,12 @@ Do not delegate when:
 - The only benefit is role theater.
 
 Before spawning subagents, state the reason in one sentence. If the reason sounds weak, stay single-agent.
+
+Common bounded delegation:
+- Explorer: answer one concrete codebase question; read-only.
+- Reviewer: inspect risk in a final or near-final diff; read-only.
+- Tester: design or implement focused tests; test files only unless approved.
+- Worker: implement one isolated slice with a disjoint write set.
 
 ## Subagent Prompt Contract
 

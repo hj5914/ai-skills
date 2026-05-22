@@ -13,6 +13,9 @@ Goal:
 Behavior:
 - 
 
+Non-goals:
+- 
+
 Acceptance:
 - [ ] 
 - [ ] 
@@ -83,6 +86,8 @@ Risks and assumptions:
 - Treat API, schema, and acceptance criteria as shared truth.
 - If implementation reveals the contract is wrong, update the contract first, then adjust code.
 - Do not let each role invent its own version of product behavior.
+- Keep contracts proportional. A small task should not grow a full product spec just because a template exists.
+- Prefer existing product and codebase patterns over newly invented behavior.
 
 ## Ambiguity Handling
 
@@ -94,6 +99,30 @@ Make reasonable assumptions when:
 - The choice can be implemented conservatively without narrowing future options.
 
 State assumptions in the delivery report when they affect behavior.
+
+## Delta Handling
+
+When requirements change after work has started, do not rewrite the whole contract by default. Add a short delta:
+
+```markdown
+## Delta
+
+Added:
+- 
+
+Removed:
+- 
+
+Changed:
+- 
+
+Impact:
+- Files/contracts affected:
+- Verification changes:
+- Work to revisit:
+```
+
+Use a delta when the original contract remains mostly true. Rewrite the contract only when the goal, user workflow, or data/API shape changes enough that the old contract would mislead implementers.
 
 ## Template Discipline
 
