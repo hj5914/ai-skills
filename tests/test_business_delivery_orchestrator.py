@@ -31,6 +31,7 @@ _ensure_contract_allowed = BDO_MODULE._ensure_contract_allowed
 _ensure_contract_exists = BDO_MODULE._ensure_contract_exists
 _ensure_verification_complete = BDO_MODULE._ensure_verification_complete
 _invalidate_downstream_artifacts_if_contract_changed = BDO_MODULE._invalidate_downstream_artifacts_if_contract_changed
+build_resume_summary = BDO_MODULE.build_resume_summary
 build_parser = BDO_MODULE.build_parser
 cmd_classify = BDO_MODULE.cmd_classify
 cmd_contract_what = BDO_MODULE.cmd_contract_what
@@ -360,6 +361,56 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(state["verification_path"], "bdo.verify.md")
         self.assertEqual(state["handoff_path"], "bdo.handoff.md")
         self.assertEqual(state["verification_summary"]["evidence"], ["pytest tests/foo_test.py"])
+
+    def test_resume_summary_requests_how_after_what_for_large_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "bdo.contract.what.md"
+            contract_path.write_text("what\n", encoding="utf-8")
+            state = default_state()
+            state["objective"] = "Add bulk archive"
+            state["size"] = "L"
+            state["phase"] = "contract"
+            state["contract_path"] = str(contract_path)
+            state["contract_stage"] = "what"
+
+            summary = build_resume_summary(state)
+
+        self.assertIn("paused at WHAT", summary["blockers"][0])
+        self.assertEqual(summary["next_step"], "Complete the HOW pass before verification.")
+        self.assertEqual(summary["suggested_command"], "contract-how")
+
+    def test_resume_summary_detects_missing_verification_artifact(self) -> None:
+        state = default_state()
+        state["objective"] = "Add bulk archive"
+        state["size"] = "M"
+        state["phase"] = "verify"
+        state["verification_path"] = "/tmp/does-not-exist.verify.md"
+
+        summary = build_resume_summary(state)
+
+        self.assertIn("Missing verification artifact", summary["blockers"][0])
+        self.assertEqual(summary["next_step"], "Regenerate the missing verification report before handoff.")
+        self.assertEqual(summary["suggested_command"], "verify --evidence \"...\"")
+
+    def test_resume_summary_points_to_handoff_when_verification_is_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "bdo.contract.md"
+            verification_path = Path(tmpdir) / "bdo.verify.md"
+            contract_path.write_text("contract\n", encoding="utf-8")
+            verification_path.write_text("verify\n", encoding="utf-8")
+            state = default_state()
+            state["objective"] = "Add bulk archive"
+            state["size"] = "M"
+            state["phase"] = "verify"
+            state["contract_path"] = str(contract_path)
+            state["contract_stage"] = "lightweight"
+            state["verification_path"] = str(verification_path)
+
+            summary = build_resume_summary(state)
+
+        self.assertEqual(summary["blockers"], [])
+        self.assertEqual(summary["next_step"], "Generate the handoff artifact to complete delivery.")
+        self.assertEqual(summary["suggested_command"], "handoff")
 
     def test_clarify_quiz_and_contract_assumptions(self) -> None:
         quiz = build_clarify_quiz(

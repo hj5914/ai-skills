@@ -80,6 +80,12 @@ def cmd_status(args: argparse.Namespace) -> int:
     return _emit(args, command="status", state_path=state_path, data=state)
 
 
+def cmd_resume(args: argparse.Namespace) -> int:
+    state_path = args.state or Path.cwd() / STATE_FILE_NAME
+    state = load_state(state_path)
+    return _emit(args, command="resume", state_path=state_path, data=build_resume_summary(state))
+
+
 def cmd_classify(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
@@ -398,6 +404,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("status")
     p.set_defaults(func=cmd_status)
 
+    p = sub.add_parser("resume")
+    p.set_defaults(func=cmd_resume)
+
     p = sub.add_parser("classify")
     p.add_argument("--size", default="M", choices=["XS", "S", "M", "L", "XL"])
     p.add_argument("--risk", default="medium")
@@ -579,6 +588,91 @@ def _invalidate_downstream_artifacts_if_contract_changed(
     state["handoff_path"] = ""
     state["reviews"] = []
     state["verification_summary"] = default_state()["verification_summary"]
+
+
+def build_resume_summary(state: dict) -> dict:
+    phase = str(state.get("phase", "init"))
+    size = str(state.get("size", "M"))
+    contract_path = str(state.get("contract_path", ""))
+    contract_stage = str(state.get("contract_stage", ""))
+    verification_path = str(state.get("verification_path", ""))
+    handoff_path = str(state.get("handoff_path", ""))
+    reviews = state.get("reviews", [])
+
+    contract_exists = bool(contract_path) and Path(contract_path).exists()
+    verification_exists = bool(verification_path) and Path(verification_path).exists()
+    handoff_exists = bool(handoff_path) and Path(handoff_path).exists()
+    completed_review_kinds = sorted(
+        {
+            review.get("kind", "")
+            for review in reviews
+            if isinstance(review, dict) and review.get("status", "") in {"DONE", "DONE_WITH_CONCERNS"}
+        }
+    )
+
+    blockers: list[str] = []
+    if contract_path and not contract_exists:
+        blockers.append(f"Missing contract artifact: {contract_path}")
+    if verification_path and not verification_exists:
+        blockers.append(f"Missing verification artifact: {verification_path}")
+    if handoff_path and not handoff_exists:
+        blockers.append(f"Missing handoff artifact: {handoff_path}")
+    if size in {"L", "XL"} and contract_stage == "what":
+        blockers.append("L/XL work is paused at WHAT; generate HOW or full contract before verification.")
+
+    next_step = "Review status and continue from the current phase."
+    suggested_command = ""
+    if not state.get("objective"):
+        next_step = "Initialize the workflow objective before resuming delivery."
+        suggested_command = "init --objective \"...\""
+    elif phase in {"init", "classify"} and size in {"M", "L", "XL"} and not contract_path:
+        next_step = "Generate the delivery contract before implementation or verification."
+        suggested_command = "contract --mode full" if size in {"L", "XL"} else "contract --mode lightweight"
+    elif size in {"L", "XL"} and contract_stage == "what":
+        next_step = "Complete the HOW pass before verification."
+        suggested_command = "contract-how"
+    elif contract_path and not contract_exists:
+        next_step = "Regenerate the missing contract artifact before proceeding."
+        suggested_command = "contract-how" if contract_stage == "what" else "contract --mode full" if size in {"L", "XL"} else "contract --mode lightweight"
+    elif phase in {"contract", "implement", "review"} and not verification_path:
+        next_step = "Run verification and record evidence before handoff."
+        suggested_command = "verify --evidence \"...\""
+    elif verification_path and not verification_exists:
+        next_step = "Regenerate the missing verification report before handoff."
+        suggested_command = "verify --evidence \"...\""
+    elif size in {"L", "XL"} and {"spec", "quality"} - set(completed_review_kinds):
+        missing = ", ".join(sorted({"spec", "quality"} - set(completed_review_kinds)))
+        next_step = f"Record the missing completed reviews before handoff: {missing}."
+        suggested_command = "review --kind spec|quality --status DONE"
+    elif not handoff_path:
+        next_step = "Generate the handoff artifact to complete delivery."
+        suggested_command = "handoff"
+    elif handoff_path and not handoff_exists:
+        next_step = "Regenerate the missing handoff artifact."
+        suggested_command = "handoff"
+    elif phase == "deliver" and handoff_exists:
+        next_step = "Delivery artifacts are present; review residual risks or close the task."
+
+    return {
+        "objective": state.get("objective", ""),
+        "phase": phase,
+        "size": size,
+        "risk": state.get("risk", ""),
+        "surfaces": state.get("surfaces", []),
+        "contract_stage": contract_stage,
+        "artifacts": {
+            "contract_path": contract_path,
+            "contract_exists": contract_exists,
+            "verification_path": verification_path,
+            "verification_exists": verification_exists,
+            "handoff_path": handoff_path,
+            "handoff_exists": handoff_exists,
+        },
+        "completed_reviews": completed_review_kinds,
+        "blockers": blockers,
+        "next_step": next_step,
+        "suggested_command": suggested_command,
+    }
 
 
 def _resolved_assumptions(state: dict) -> list[str]:
