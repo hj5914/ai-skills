@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
+from contextlib import redirect_stdout
 import sys
 import tempfile
 import unittest
@@ -28,9 +30,16 @@ BDO_SPEC.loader.exec_module(BDO_MODULE)
 _ensure_contract_allowed = BDO_MODULE._ensure_contract_allowed
 _ensure_contract_exists = BDO_MODULE._ensure_contract_exists
 _ensure_verification_complete = BDO_MODULE._ensure_verification_complete
+build_parser = BDO_MODULE.build_parser
+cmd_classify = BDO_MODULE.cmd_classify
+cmd_contract_what = BDO_MODULE.cmd_contract_what
 
 
 class BusinessDeliveryOrchestratorTests(unittest.TestCase):
+    def _run_cli_func_silently(self, func, args) -> None:
+        with redirect_stdout(io.StringIO()):
+            func(args)
+
     def test_normalize_state_backfills_new_fields(self) -> None:
         legacy = {
             "objective": "Demo",
@@ -94,6 +103,36 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         state["surfaces"] = ["payment", "migration"]
 
         validate_state(state)
+
+    def test_classify_preserves_existing_surfaces_when_not_provided(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / ".bdo.state.json"
+            state = default_state()
+            state["surfaces"] = ["auth", "data"]
+            BDO_MODULE.save_state(state_path, state)
+            parser = build_parser()
+            args = parser.parse_args(["--state", str(state_path), "classify", "--size", "L", "--risk", "high"])
+
+            self._run_cli_func_silently(cmd_classify, args)
+            updated = load_state(state_path)
+
+        self.assertEqual(updated["surfaces"], ["auth", "data"])
+
+    def test_classify_can_explicitly_clear_surfaces(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / ".bdo.state.json"
+            state = default_state()
+            state["surfaces"] = ["payment"]
+            BDO_MODULE.save_state(state_path, state)
+            parser = build_parser()
+            args = parser.parse_args(
+                ["--state", str(state_path), "classify", "--size", "M", "--risk", "medium", "--clear-surfaces"]
+            )
+
+            self._run_cli_func_silently(cmd_classify, args)
+            updated = load_state(state_path)
+
+        self.assertEqual(updated["surfaces"], [])
 
     def test_replace_section_placeholder_replaces_entire_block(self) -> None:
         template = "Changed:\n- old one\n- old two\n\nNext:\n- keep\n"
@@ -231,6 +270,23 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("Shared behavior is intentionally deferred to the HOW pass.", what)
         self.assertIn("Delivery Contract - HOW", how)
         self.assertIn("Script test: pytest", how)
+
+    def test_contract_what_updates_state_for_resume(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / ".bdo.state.json"
+            output_path = Path(tmpdir) / "bdo.contract.what.md"
+            state = default_state()
+            state["objective"] = "Add bulk archive"
+            state["size"] = "L"
+            BDO_MODULE.save_state(state_path, state)
+            parser = build_parser()
+            args = parser.parse_args(["--state", str(state_path), "contract-what", "--output", str(output_path)])
+
+            self._run_cli_func_silently(cmd_contract_what, args)
+            updated = load_state(state_path)
+
+        self.assertEqual(updated["phase"], "contract")
+        self.assertEqual(updated["contract_path"], str(output_path))
 
     def test_clarify_quiz_and_contract_assumptions(self) -> None:
         quiz = build_clarify_quiz(

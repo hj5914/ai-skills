@@ -85,7 +85,10 @@ def cmd_classify(args: argparse.Namespace) -> int:
     state = load_state(state_path)
     state["size"] = args.size
     state["risk"] = args.risk
-    state["surfaces"] = args.surface or []
+    if args.clear_surfaces:
+        state["surfaces"] = []
+    elif args.surface:
+        state["surfaces"] = args.surface
     set_phase(state, "classify")
     save_state(state_path, state)
     return _emit(
@@ -172,6 +175,9 @@ def cmd_contract_what(args: argparse.Namespace) -> int:
     )
     contract_path = args.output or Path.cwd() / "bdo.contract.what.md"
     _write_text(contract_path, contract)
+    state["contract_path"] = str(contract_path)
+    set_phase(state, "contract")
+    save_state(state_path, state)
     return _emit(
         args,
         command="contract-what",
@@ -383,6 +389,11 @@ def build_parser() -> argparse.ArgumentParser:
             "performance",
         ],
         help="Changed surface; repeat for multiple values",
+    )
+    p.add_argument(
+        "--clear-surfaces",
+        action="store_true",
+        help="Clear previously recorded surfaces before saving this classification",
     )
     p.set_defaults(func=cmd_classify)
 
