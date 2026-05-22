@@ -9,6 +9,7 @@
     "risk",
     "phase",
     "contract_path",
+    "contract_stage",
     "verification_path",
     "handoff_path",
     "surfaces",
@@ -37,6 +38,10 @@
     },
     "contract_path": {
       "type": "string"
+    },
+    "contract_stage": {
+      "type": "string",
+      "enum": ["", "lightweight", "full", "what", "how"]
     },
     "verification_path": {
       "type": "string"

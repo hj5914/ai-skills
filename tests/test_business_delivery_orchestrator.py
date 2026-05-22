@@ -30,6 +30,7 @@ BDO_SPEC.loader.exec_module(BDO_MODULE)
 _ensure_contract_allowed = BDO_MODULE._ensure_contract_allowed
 _ensure_contract_exists = BDO_MODULE._ensure_contract_exists
 _ensure_verification_complete = BDO_MODULE._ensure_verification_complete
+_invalidate_downstream_artifacts_if_contract_changed = BDO_MODULE._invalidate_downstream_artifacts_if_contract_changed
 build_parser = BDO_MODULE.build_parser
 cmd_classify = BDO_MODULE.cmd_classify
 cmd_contract_what = BDO_MODULE.cmd_contract_what
@@ -97,6 +98,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(loaded["verification_summary"]["gaps"], [])
         self.assertEqual(loaded["delta"][0]["summary"], "")
         self.assertEqual(loaded["impact_scan"]["recommended_size"], "")
+        self.assertEqual(loaded["contract_stage"], "")
 
     def test_validate_state_accepts_payment_and_migration_surfaces(self) -> None:
         state = default_state()
@@ -287,6 +289,77 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
 
         self.assertEqual(updated["phase"], "contract")
         self.assertEqual(updated["contract_path"], str(output_path))
+        self.assertEqual(updated["contract_stage"], "what")
+
+    def test_contract_gate_rejects_what_only_contract_for_large_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "bdo.contract.what.md"
+            contract_path.write_text("what\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "L"
+            state["contract_path"] = str(contract_path)
+            state["contract_stage"] = "what"
+
+            with self.assertRaisesRegex(ValueError, "requires a HOW or full contract"):
+                _ensure_contract_exists(state, command="verify")
+
+    def test_contract_change_invalidates_downstream_verification_and_reviews(self) -> None:
+        state = default_state()
+        state["contract_path"] = "bdo.contract.md"
+        state["contract_stage"] = "full"
+        state["verification_path"] = "bdo.verify.md"
+        state["handoff_path"] = "bdo.handoff.md"
+        state["verification_summary"] = {
+            "checks": ["Inspect final diff"],
+            "escalation": [],
+            "stop_conditions": [],
+            "evidence": ["pytest tests/foo_test.py"],
+            "gaps": [],
+        }
+        state["reviews"] = [
+            {
+                "kind": "spec",
+                "status": "DONE",
+                "focus": "contract alignment",
+                "findings": [],
+                "evidence": ["checked contract"],
+            }
+        ]
+
+        _invalidate_downstream_artifacts_if_contract_changed(
+            state,
+            previous_contract=("bdo.contract.md", "full"),
+            current_contract=("bdo.contract.how.md", "how"),
+        )
+
+        self.assertEqual(state["verification_path"], "")
+        self.assertEqual(state["handoff_path"], "")
+        self.assertEqual(state["reviews"], [])
+        self.assertEqual(state["verification_summary"]["evidence"], [])
+
+    def test_same_contract_does_not_invalidate_downstream_artifacts(self) -> None:
+        state = default_state()
+        state["contract_path"] = "bdo.contract.md"
+        state["contract_stage"] = "full"
+        state["verification_path"] = "bdo.verify.md"
+        state["handoff_path"] = "bdo.handoff.md"
+        state["verification_summary"] = {
+            "checks": [],
+            "escalation": [],
+            "stop_conditions": [],
+            "evidence": ["pytest tests/foo_test.py"],
+            "gaps": [],
+        }
+
+        _invalidate_downstream_artifacts_if_contract_changed(
+            state,
+            previous_contract=("bdo.contract.md", "full"),
+            current_contract=("bdo.contract.md", "full"),
+        )
+
+        self.assertEqual(state["verification_path"], "bdo.verify.md")
+        self.assertEqual(state["handoff_path"], "bdo.handoff.md")
+        self.assertEqual(state["verification_summary"]["evidence"], ["pytest tests/foo_test.py"])
 
     def test_clarify_quiz_and_contract_assumptions(self) -> None:
         quiz = build_clarify_quiz(

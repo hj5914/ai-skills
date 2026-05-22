@@ -8,6 +8,7 @@ from tempfile import NamedTemporaryFile
 STATE_FILE_NAME = ".bdo.state.json"
 VALID_SIZES = {"XS", "S", "M", "L", "XL"}
 VALID_PHASES = {"init", "classify", "plan", "contract", "implement", "review", "verify", "deliver", "memory"}
+VALID_CONTRACT_STAGES = {"", "lightweight", "full", "what", "how"}
 VALID_SURFACES = {
     "copy",
     "config",
@@ -31,6 +32,7 @@ def default_state() -> dict:
         "risk": "medium",
         "phase": "init",
         "contract_path": "",
+        "contract_stage": "",
         "verification_path": "",
         "handoff_path": "",
         "surfaces": [],
@@ -157,6 +159,7 @@ def validate_state(state: dict) -> None:
         "risk": str,
         "phase": str,
         "contract_path": str,
+        "contract_stage": str,
         "verification_path": str,
         "handoff_path": str,
         "surfaces": list,
@@ -184,6 +187,8 @@ def validate_state(state: dict) -> None:
         raise ValueError(f"BDO state size must be one of {sorted(VALID_SIZES)}")
     if state["phase"] not in VALID_PHASES:
         raise ValueError(f"BDO state phase must be one of {sorted(VALID_PHASES)}")
+    if state["contract_stage"] not in VALID_CONTRACT_STAGES:
+        raise ValueError(f"BDO state contract_stage must be one of {sorted(VALID_CONTRACT_STAGES)}")
     if not all(isinstance(v, str) for v in state["surfaces"]):
         raise ValueError("BDO state surfaces must be a list of strings")
     invalid_surfaces = sorted(set(state["surfaces"]) - VALID_SURFACES)

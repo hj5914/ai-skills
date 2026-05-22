@@ -142,8 +142,18 @@ def cmd_contract(args: argparse.Namespace) -> int:
         clarify_assumptions=_resolved_assumptions(state),
     )
     contract_path = args.output or Path.cwd() / "bdo.contract.md"
+    previous_contract = (
+        state.get("contract_path", ""),
+        state.get("contract_stage", ""),
+    )
     _write_text(contract_path, contract)
     state["contract_path"] = str(contract_path)
+    state["contract_stage"] = args.mode
+    _invalidate_downstream_artifacts_if_contract_changed(
+        state,
+        previous_contract=previous_contract,
+        current_contract=(state["contract_path"], state["contract_stage"]),
+    )
     set_phase(state, "contract")
     save_state(state_path, state)
     return _emit(
@@ -174,8 +184,18 @@ def cmd_contract_what(args: argparse.Namespace) -> int:
         clarify_assumptions=_resolved_assumptions(state),
     )
     contract_path = args.output or Path.cwd() / "bdo.contract.what.md"
+    previous_contract = (
+        state.get("contract_path", ""),
+        state.get("contract_stage", ""),
+    )
     _write_text(contract_path, contract)
     state["contract_path"] = str(contract_path)
+    state["contract_stage"] = "what"
+    _invalidate_downstream_artifacts_if_contract_changed(
+        state,
+        previous_contract=previous_contract,
+        current_contract=(state["contract_path"], state["contract_stage"]),
+    )
     set_phase(state, "contract")
     save_state(state_path, state)
     return _emit(
@@ -207,8 +227,18 @@ def cmd_contract_how(args: argparse.Namespace) -> int:
         clarify_assumptions=_resolved_assumptions(state),
     )
     contract_path = args.output or Path.cwd() / "bdo.contract.how.md"
+    previous_contract = (
+        state.get("contract_path", ""),
+        state.get("contract_stage", ""),
+    )
     _write_text(contract_path, contract)
     state["contract_path"] = str(contract_path)
+    state["contract_stage"] = "how"
+    _invalidate_downstream_artifacts_if_contract_changed(
+        state,
+        previous_contract=previous_contract,
+        current_contract=(state["contract_path"], state["contract_stage"]),
+    )
     set_phase(state, "contract")
     save_state(state_path, state)
     return _emit(
@@ -501,10 +531,13 @@ def _ensure_contract_allowed(state: dict, mode: str) -> None:
 def _ensure_contract_exists(state: dict, *, command: str) -> None:
     size = state.get("size", "")
     contract_path = state.get("contract_path", "")
+    contract_stage = state.get("contract_stage", "")
     if size in {"M", "L", "XL"} and not contract_path:
         raise ValueError(f"{command} requires a generated contract for M/L/XL tasks")
     if contract_path and not Path(contract_path).exists():
         raise ValueError(f"{command} requires an existing contract file: {contract_path}")
+    if size in {"L", "XL"} and contract_stage == "what":
+        raise ValueError(f"{command} requires a HOW or full contract for L/XL tasks")
 
 
 def _ensure_verification_complete(state: dict) -> None:
@@ -535,6 +568,17 @@ def _ensure_required_reviews(state: dict) -> None:
         raise ValueError(
             "handoff for L/XL tasks requires completed reviews for: " + ", ".join(missing)
         )
+
+
+def _invalidate_downstream_artifacts_if_contract_changed(
+    state: dict, *, previous_contract: tuple[str, str], current_contract: tuple[str, str]
+) -> None:
+    if previous_contract == current_contract:
+        return
+    state["verification_path"] = ""
+    state["handoff_path"] = ""
+    state["reviews"] = []
+    state["verification_summary"] = default_state()["verification_summary"]
 
 
 def _resolved_assumptions(state: dict) -> list[str]:
