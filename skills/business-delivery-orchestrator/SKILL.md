@@ -62,6 +62,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 1. Classify the request.
    - **Impact Scan**: Before sizing, perform a quick read-only scan of likely dependents. When using the bundled CLI, `scan` checks direct path matches first, then import/use references, then plain-text fallback matches to inform sizing. Treat the result as a heuristic, not a complete dependency graph.
    - Identify user goal, affected surfaces, expected deliverable, deadline pressure, and ambiguity.
+   - For M+ tasks, report the classified size, risk, and rationale to the user before proceeding; if the user disagrees, reclassify.
    - If the request is only analysis or brainstorming, stop before implementation and return the analysis.
    - If the request qualifies for the fast path, use the fast path and avoid the full workflow.
    - If the request is implementation, continue through verification unless blocked.
@@ -101,6 +102,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
      2. **Code Quality Review**: Inspect for correctness, performance, security, and maintainability. Prefer a separate Reviewer subagent (not the same one from Stage 1) when available.
      3. Identify 3 potential failure modes (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
      For M tasks, combine both stages into a single self-review pass.
+   - For M+ tasks, run `tools/bdo.py verify` before reporting verification complete.
    - **Cross-Phase Consistency Check (L/XL)**: Before running tests, verify Contract → Plan → Implementation alignment.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
    - Use `references/verification-gates.md` for verification depth and stop conditions.
@@ -109,6 +111,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 7. Deliver.
    - Report what changed, what was verified, known residual risks, and any follow-up that is truly useful.
    - **Knowledge Base Update**: After a successful delivery, append 1-2 reusable lessons to `MEMORY.md`.
+   - For M+ tasks, run `tools/bdo.py handoff` before reporting delivery complete.
    - If blocked, report the blocker, evidence, and the next concrete action.
    - Use `templates/handoff-template.md` unless the environment already has a stricter handoff format.
 
