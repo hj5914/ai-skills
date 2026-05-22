@@ -7,7 +7,7 @@ from tempfile import NamedTemporaryFile
 
 STATE_FILE_NAME = ".bdo.state.json"
 VALID_SIZES = {"XS", "S", "M", "L", "XL"}
-VALID_PHASES = {"init", "classify", "contract", "verify", "deliver", "memory"}
+VALID_PHASES = {"init", "classify", "plan", "contract", "implement", "review", "verify", "deliver", "memory"}
 VALID_SURFACES = {
     "copy",
     "config",
@@ -39,6 +39,14 @@ def default_state() -> dict:
             "evidence": [],
             "gaps": [],
         },
+        "impact_scan": {
+            "targets": [],
+            "matched_files": [],
+            "summary": "",
+            "recommended_size": "",
+            "notes": [],
+        },
+        "constraints_detected": [],
         "delta": [],
         "memory": [],
     }
@@ -100,6 +108,12 @@ def normalize_state(state: dict) -> dict:
         }
         normalized_delta.append(normalized_item)
     merged["delta"] = normalized_delta
+
+    scan = state.get("impact_scan", {})
+    merged_scan = default_state()["impact_scan"]
+    if isinstance(scan, dict):
+        merged_scan.update(scan)
+    merged["impact_scan"] = merged_scan
     return merged
 
 
@@ -117,6 +131,8 @@ def validate_state(state: dict) -> None:
         "handoff_path": str,
         "surfaces": list,
         "verification_summary": dict,
+        "impact_scan": dict,
+        "constraints_detected": list,
         "delta": list,
         "memory": list,
     }
@@ -149,6 +165,23 @@ def validate_state(state: dict) -> None:
     for key in ("checks", "escalation", "stop_conditions", "evidence", "gaps"):
         if not isinstance(summary[key], list) or not all(isinstance(v, str) for v in summary[key]):
             raise ValueError(f"BDO state verification_summary.{key} must be a list of strings")
+
+    scan = state["impact_scan"]
+    if set(scan.keys()) != {"targets", "matched_files", "summary", "recommended_size", "notes"}:
+        raise ValueError(
+            "BDO state impact_scan must contain targets, matched_files, summary, recommended_size, notes"
+        )
+    for key in ("targets", "matched_files", "notes"):
+        if not isinstance(scan[key], list) or not all(isinstance(v, str) for v in scan[key]):
+            raise ValueError(f"BDO state impact_scan.{key} must be a list of strings")
+    for key in ("summary", "recommended_size"):
+        if not isinstance(scan[key], str):
+            raise ValueError(f"BDO state impact_scan.{key} must be a string")
+    if scan["recommended_size"] and scan["recommended_size"] not in VALID_SIZES:
+        raise ValueError(f"BDO state impact_scan.recommended_size must be one of {sorted(VALID_SIZES)}")
+
+    if not all(isinstance(v, str) for v in state["constraints_detected"]):
+        raise ValueError("BDO state constraints_detected must be a list of strings")
 
     for idx, item in enumerate(state["delta"]):
         if not isinstance(item, dict):

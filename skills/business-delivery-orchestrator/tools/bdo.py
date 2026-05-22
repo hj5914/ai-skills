@@ -16,6 +16,7 @@ if str(TOOLS_DIR) not in sys.path:
 from core.handoff import render_handoff
 from core.contract import render_contract
 from core.memory import parse_memory_entry, render_memory_entry
+from core.scan import mine_constraints, run_impact_scan
 from core.state import (
     STATE_FILE_NAME,
     default_state,
@@ -91,15 +92,25 @@ def cmd_classify(args: argparse.Namespace) -> int:
     )
 
 
+def cmd_phase(args: argparse.Namespace) -> int:
+    state_path = args.state or Path.cwd() / STATE_FILE_NAME
+    state = load_state(state_path)
+    set_phase(state, args.name)
+    save_state(state_path, state)
+    return _emit(args, command="phase", state_path=state_path, data={"phase": state["phase"]})
+
+
 def cmd_contract(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
+    _ensure_contract_allowed(state, args.mode)
     contract = render_contract(
         objective=state.get("objective", ""),
         size=state.get("size", "M"),
         risk=state.get("risk", "medium"),
         mode=args.mode,
         surfaces=state.get("surfaces", []),
+        constraints_detected=state.get("constraints_detected", []),
     )
     contract_path = args.output or Path.cwd() / "bdo.contract.md"
     _write_text(contract_path, contract)
@@ -123,6 +134,7 @@ def cmd_contract(args: argparse.Namespace) -> int:
 def cmd_verify(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
+    _ensure_contract_exists(state, command="verify")
     state["verification_summary"] = build_verification_summary(
         state,
         evidence=args.evidence or [],
@@ -146,6 +158,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
 def cmd_handoff(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
+    _ensure_contract_exists(state, command="handoff")
+    _ensure_verification_complete(state)
     handoff = render_handoff(state)
     handoff_path = args.output or Path.cwd() / "bdo.handoff.md"
     _write_text(handoff_path, handoff)
@@ -209,6 +223,27 @@ def cmd_delta(args: argparse.Namespace) -> int:
     return _emit(args, command="delta", state_path=state_path, data=delta)
 
 
+def cmd_scan(args: argparse.Namespace) -> int:
+    state_path = args.state or Path.cwd() / STATE_FILE_NAME
+    state = load_state(state_path)
+    state["impact_scan"] = run_impact_scan(Path.cwd(), args.target or [])
+    save_state(state_path, state)
+    return _emit(args, command="scan", state_path=state_path, data=state["impact_scan"])
+
+
+def cmd_mine(args: argparse.Namespace) -> int:
+    state_path = args.state or Path.cwd() / STATE_FILE_NAME
+    state = load_state(state_path)
+    state["constraints_detected"] = mine_constraints(Path.cwd())
+    save_state(state_path, state)
+    return _emit(
+        args,
+        command="mine",
+        state_path=state_path,
+        data={"constraints_detected": state["constraints_detected"]},
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="bdo")
     parser.add_argument("--state", type=Path, help="Path to the bdo state file")
@@ -232,6 +267,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Changed surface; repeat for multiple values",
     )
     p.set_defaults(func=cmd_classify)
+
+    p = sub.add_parser("phase")
+    p.add_argument(
+        "name",
+        choices=["init", "classify", "plan", "contract", "implement", "review", "verify", "deliver", "memory"],
+        help="Explicitly set the current workflow phase",
+    )
+    p.set_defaults(func=cmd_phase)
+
+    p = sub.add_parser("scan")
+    p.add_argument("--target", action="append", help="Keyword, path, or module name to scan for impact")
+    p.set_defaults(func=cmd_scan)
+
+    p = sub.add_parser("mine")
+    p.set_defaults(func=cmd_mine)
 
     p = sub.add_parser("contract")
     p.add_argument("--mode", choices=["lightweight", "full"], default="lightweight")
@@ -288,6 +338,31 @@ def _summarize_delta(added: list[str], removed: list[str], changed: list[str], i
     if impact:
         parts.append(impact)
     return "; ".join(parts) if parts else "No delta recorded"
+
+
+def _ensure_contract_allowed(state: dict, mode: str) -> None:
+    surfaces = set(state.get("surfaces", []))
+    size = state.get("size", "")
+    if surfaces & {"auth", "data"} and mode != "full":
+        raise ValueError("auth/data tasks require `contract --mode full`")
+    if size in {"L", "XL"} and mode != "full":
+        raise ValueError("L/XL tasks require `contract --mode full`")
+
+
+def _ensure_contract_exists(state: dict, *, command: str) -> None:
+    size = state.get("size", "")
+    if size in {"M", "L", "XL"} and not state.get("contract_path"):
+        raise ValueError(f"{command} requires a generated contract for M/L/XL tasks")
+
+
+def _ensure_verification_complete(state: dict) -> None:
+    size = state.get("size", "")
+    summary = state.get("verification_summary", {})
+    evidence = summary.get("evidence", []) if isinstance(summary, dict) else []
+    if not state.get("verification_path"):
+        raise ValueError("handoff requires a verification report")
+    if size in {"L", "XL"} and not evidence:
+        raise ValueError("handoff for L/XL tasks requires verification evidence")
 
 
 if __name__ == "__main__":

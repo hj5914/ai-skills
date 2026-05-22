@@ -13,6 +13,8 @@
     "handoff_path",
     "surfaces",
     "verification_summary",
+    "impact_scan",
+    "constraints_detected",
     "delta",
     "memory"
   ],
@@ -29,7 +31,7 @@
     },
     "phase": {
       "type": "string",
-      "enum": ["init", "classify", "contract", "verify", "deliver", "memory"]
+      "enum": ["init", "classify", "plan", "contract", "implement", "review", "verify", "deliver", "memory"]
     },
     "contract_path": {
       "type": "string"
@@ -85,12 +87,42 @@
         }
       }
     },
+    "impact_scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targets", "matched_files", "summary", "recommended_size", "notes"],
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "matched_files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "recommended_size": {
+          "type": "string",
+          "enum": ["", "XS", "S", "M", "L", "XL"]
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "constraints_detected": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "delta": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["added", "removed", "changed", "impact"],
+        "required": ["added", "removed", "changed", "impact", "summary"],
         "properties": {
           "added": {
             "type": "array",

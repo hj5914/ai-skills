@@ -1,0 +1,161 @@
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+import unittest
+from datetime import date
+from pathlib import Path
+
+
+TOOLS_DIR = Path(__file__).resolve().parents[1] / "skills" / "business-delivery-orchestrator" / "tools"
+if str(TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(TOOLS_DIR))
+
+from core.handoff import render_handoff
+from core.memory import parse_memory_entry, render_memory_entry
+from core.scan import run_impact_scan
+from core.state import default_state, load_state, normalize_state
+from core.templates import replace_section_placeholder
+
+
+class BusinessDeliveryOrchestratorTests(unittest.TestCase):
+    def test_normalize_state_backfills_new_fields(self) -> None:
+        legacy = {
+            "objective": "Demo",
+            "size": "M",
+            "risk": "medium",
+            "phase": "verify",
+            "contract_path": "",
+            "verification_path": "",
+            "handoff_path": "",
+            "surfaces": ["ui"],
+            "verification_summary": {
+                "checks": ["check"],
+                "escalation": ["escalate"],
+                "stop_conditions": ["stop"],
+            },
+            "delta": [
+                {
+                    "added": ["a.py"],
+                    "removed": [],
+                    "changed": ["b.py"],
+                    "impact": "changed api surface",
+                }
+            ],
+            "memory": [],
+        }
+
+        normalized = normalize_state(legacy)
+
+        self.assertEqual(normalized["verification_summary"]["evidence"], [])
+        self.assertEqual(normalized["verification_summary"]["gaps"], [])
+        self.assertEqual(normalized["delta"][0]["summary"], "")
+        self.assertEqual(normalized["impact_scan"]["matched_files"], [])
+        self.assertEqual(normalized["constraints_detected"], [])
+
+    def test_load_state_normalizes_legacy_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / ".bdo.state.json"
+            legacy = default_state()
+            legacy["verification_summary"].pop("evidence")
+            legacy["verification_summary"].pop("gaps")
+            legacy["delta"] = [
+                {
+                    "added": ["a.py"],
+                    "removed": [],
+                    "changed": ["b.py"],
+                    "impact": "changed api surface",
+                }
+            ]
+            path.write_text(json.dumps(legacy), encoding="utf-8")
+
+            loaded = load_state(path)
+
+        self.assertEqual(loaded["verification_summary"]["evidence"], [])
+        self.assertEqual(loaded["verification_summary"]["gaps"], [])
+        self.assertEqual(loaded["delta"][0]["summary"], "")
+        self.assertEqual(loaded["impact_scan"]["recommended_size"], "")
+
+    def test_replace_section_placeholder_replaces_entire_block(self) -> None:
+        template = "Changed:\n- old one\n- old two\n\nNext:\n- keep\n"
+        rendered = replace_section_placeholder(template, "Changed:", "- new one\n- new two")
+
+        self.assertIn("Changed:\n- new one\n- new two", rendered)
+        self.assertNotIn("old one", rendered)
+        self.assertIn("Next:\n- keep", rendered)
+
+    def test_render_handoff_uses_evidence_and_no_blank_placeholders(self) -> None:
+        state = default_state()
+        state["objective"] = "Smoke handoff"
+        state["surfaces"] = ["ui", "api"]
+        state["delta"] = [
+            {
+                "added": [],
+                "removed": [],
+                "changed": ["skills/foo.py"],
+                "impact": "ui copy updated",
+                "summary": "changed skills/foo.py; ui copy updated",
+            }
+        ]
+        state["verification_summary"] = {
+            "checks": ["Inspect final diff"],
+            "escalation": ["Verify frontend/backend contract alignment because multiple layers changed"],
+            "stop_conditions": [],
+            "evidence": ["pytest tests/foo_test.py"],
+            "gaps": ["no e2e env"],
+        }
+        state["memory"] = [
+            "## 2026-05-22 - Smoke handoff\n\n- Context: Smoke handoff\n- Lesson: Guard empty states\n- Actionable rule for future work: Always cover loading, empty, error\n- Evidence: pytest tests/foo_test.py"
+        ]
+
+        rendered = render_handoff(state)
+
+        self.assertIn("pytest tests/foo_test.py", rendered)
+        self.assertIn("no e2e env", rendered)
+        self.assertNotIn("\n- \n", rendered)
+        self.assertNotIn("Not verified:\n- \n", rendered)
+
+    def test_render_memory_entry_derives_defaults_from_state(self) -> None:
+        state = default_state()
+        state["objective"] = "Smoke memory"
+        state["surfaces"] = ["auth"]
+        state["delta"] = [
+            {
+                "added": ["auth.py"],
+                "removed": [],
+                "changed": ["gate.py"],
+                "impact": "tightened auth checks",
+                "summary": "tightened auth checks",
+            }
+        ]
+
+        rendered = render_memory_entry(state)
+        parsed = parse_memory_entry(rendered)
+
+        self.assertIn("Permission edges need explicit positive and negative coverage.", rendered)
+        self.assertIn("Always verify allow and deny paths together.", rendered)
+        self.assertEqual(parsed["context"], "Smoke memory | tightened auth checks")
+        self.assertEqual(parsed["title"], f"{date.today().isoformat()} - Smoke memory")
+
+    def test_impact_scan_prefers_import_matches_over_plain_text(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "src").mkdir()
+            (root / "src" / "target_module.ts").write_text("export const value = 1;\n", encoding="utf-8")
+            (root / "src" / "consumer.ts").write_text(
+                "import { value } from './target_module';\nconsole.log(value)\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "notes.md").write_text("target_module is mentioned here\n", encoding="utf-8")
+
+            result = run_impact_scan(root, ["target_module"])
+
+        self.assertEqual(result["matched_files"][0], "src/target_module.ts")
+        self.assertIn("src/consumer.ts", result["matched_files"])
+        self.assertIn("src/notes.md", result["matched_files"])
+        self.assertEqual(result["recommended_size"], "M")
+
+
+if __name__ == "__main__":
+    unittest.main()

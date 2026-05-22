@@ -22,16 +22,38 @@ SURFACE_BEHAVIOR = {
 }
 
 
-def render_contract(*, objective: str, size: str, risk: str, mode: str, surfaces: list[str]) -> str:
+def render_contract(
+    *,
+    objective: str,
+    size: str,
+    risk: str,
+    mode: str,
+    surfaces: list[str],
+    constraints_detected: list[str] | None = None,
+) -> str:
     if mode == "full" or size in {"L", "XL"}:
-        return _render_full_contract(objective=objective, size=size, risk=risk, surfaces=surfaces)
-    return _render_lightweight_contract(objective=objective, size=size, risk=risk, surfaces=surfaces)
+        return _render_full_contract(
+            objective=objective,
+            size=size,
+            risk=risk,
+            surfaces=surfaces,
+            constraints_detected=constraints_detected,
+        )
+    return _render_lightweight_contract(
+        objective=objective,
+        size=size,
+        risk=risk,
+        surfaces=surfaces,
+        constraints_detected=constraints_detected,
+    )
 
 
-def _render_lightweight_contract(*, objective: str, size: str, risk: str, surfaces: list[str]) -> str:
+def _render_lightweight_contract(
+    *, objective: str, size: str, risk: str, surfaces: list[str], constraints_detected: list[str] | None = None
+) -> str:
     template = load_template_code_block("lightweight-contract-template.md")
     template = fill_once(template, "Goal:\n- ", f"Goal:\n- {objective or ''}")
-    constraints = _constraints_defaults(surfaces)
+    constraints = _constraints_defaults(surfaces, constraints_detected=constraints_detected)
     non_goals = _non_goal_defaults(surfaces)
     behaviors = _behavior_defaults(surfaces)
     acceptance = _acceptance_defaults(surfaces)
@@ -51,7 +73,9 @@ def _render_lightweight_contract(*, objective: str, size: str, risk: str, surfac
     return template
 
 
-def _render_full_contract(*, objective: str, size: str, risk: str, surfaces: list[str]) -> str:
+def _render_full_contract(
+    *, objective: str, size: str, risk: str, surfaces: list[str], constraints_detected: list[str] | None = None
+) -> str:
     template = load_template_code_block("full-delivery-contract-template.md")
     template = fill_once(template, "Goal:\n- ", f"Goal:\n- {objective or ''}")
 
@@ -106,7 +130,11 @@ def _render_full_contract(*, objective: str, size: str, risk: str, surfaces: lis
         risks.append("data compatibility and rollback path need review")
 
     template = replace_section_placeholder(template, "Non-goals:", list_block(_non_goal_defaults(surfaces)))
-    template = replace_section_placeholder(template, "Constraints (Constitution):", list_block(_constraints_defaults(surfaces)))
+    template = replace_section_placeholder(
+        template,
+        "Constraints (Constitution):",
+        list_block(_constraints_defaults(surfaces, constraints_detected=constraints_detected)),
+    )
     template = fill_once(template, "- Actor:", f"- Actor: {actor}")
     template = fill_once(template, "- Trigger:", f"- Trigger: {trigger}")
     template = fill_once(template, "- Success path:", f"- Success path: {success_path}")
@@ -134,8 +162,10 @@ def _render_full_contract(*, objective: str, size: str, risk: str, surfaces: lis
     return template
 
 
-def _constraints_defaults(surfaces: list[str]) -> list[str]:
+def _constraints_defaults(surfaces: list[str], *, constraints_detected: list[str] | None = None) -> list[str]:
     items = ["Follow project-wide instructions first (`CLAUDE.md`, `AGENT.md`, `GEMINI.md`, repo docs, existing config)."]
+    if constraints_detected:
+        items.extend(constraints_detected[:4])
     if {"api", "backend", "auth", "data"} & set(surfaces):
         items.append("Preserve existing contracts and avoid widening external behavior without explicit approval.")
     else:
