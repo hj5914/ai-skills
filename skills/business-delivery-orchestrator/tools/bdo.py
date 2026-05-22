@@ -113,6 +113,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
 def cmd_phase(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
+    _ensure_phase_transition_allowed(state, args.name)
     set_phase(state, args.name)
     save_state(state_path, state)
     return _emit(args, command="phase", state_path=state_path, data={"phase": state["phase"]})
@@ -538,6 +539,25 @@ def _ensure_contract_allowed(state: dict, mode: str) -> None:
         raise ValueError("auth/data/payment/migration tasks require `contract --mode full`")
     if size in {"L", "XL"} and mode != "full":
         raise ValueError("L/XL tasks require `contract --mode full`")
+
+
+def _ensure_phase_transition_allowed(state: dict, phase: str) -> None:
+    size = state.get("size", "")
+    contract_path = state.get("contract_path", "")
+    contract_stage = state.get("contract_stage", "")
+    verification_path = state.get("verification_path", "")
+    if phase in {"implement", "review", "verify", "deliver"} and size in {"M", "L", "XL"}:
+        if not contract_path:
+            raise ValueError(f"phase {phase} requires a contract for M/L/XL tasks")
+        if not Path(contract_path).exists():
+            raise ValueError(f"phase {phase} requires an existing contract file: {contract_path}")
+        if size in {"L", "XL"} and contract_stage == "what":
+            raise ValueError(f"phase {phase} requires a HOW or full contract for L/XL tasks")
+    if phase == "deliver":
+        if not verification_path:
+            raise ValueError("phase deliver requires a verification report")
+        if not Path(verification_path).exists():
+            raise ValueError(f"phase deliver requires an existing verification report: {verification_path}")
 
 
 def _ensure_contract_exists(state: dict, *, command: str) -> None:

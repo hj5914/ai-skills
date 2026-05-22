@@ -237,7 +237,7 @@ If ECC tools or agents are installed, use them as implementation mechanisms, but
 This skill includes a local helper at `tools/bdo.py`. Use it when structured artifacts or machine-readable output are useful; skip it for trivial fast-path work.
 
 - Core commands: `init`, `classify`, `phase`, `quiz`, `scan`, `mine`, `contract`, `contract-what`, `contract-how`, `review`, `verify`, `handoff`, `memory`, `delta`, `status`, `resume`
-- Enforced checks: `auth/data/payment/migration` work requires a full contract; M/L/XL verification requires a contract; L/XL work cannot stop at `contract-what` and must reach `contract-how` or `contract --mode full`; handoff requires contract and verification files that still exist; L/XL handoff also requires completed `spec` and `quality` reviews
+- Enforced checks: `auth/data/payment/migration` work requires a full contract; manual `phase` transitions cannot bypass required contract / verify artifacts; M/L/XL verification requires a contract; L/XL work cannot stop at `contract-what` and must reach `contract-how` or `contract --mode full`; handoff requires contract and verification files that still exist; L/XL handoff also requires completed `spec` and `quality` reviews
 - Soft reminders: `classify` and contract commands suggest `quiz` when the task is large or risky and no clarify quiz has been recorded yet
 - `resume` summarizes missing artifacts, phase/state mismatches, and minimal recovery actions for blocked reviews
 - Output: add `--json` for machine-readable output

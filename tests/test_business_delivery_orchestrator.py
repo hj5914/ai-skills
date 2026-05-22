@@ -28,6 +28,7 @@ assert BDO_SPEC and BDO_SPEC.loader
 BDO_MODULE = importlib.util.module_from_spec(BDO_SPEC)
 BDO_SPEC.loader.exec_module(BDO_MODULE)
 _ensure_contract_allowed = BDO_MODULE._ensure_contract_allowed
+_ensure_phase_transition_allowed = BDO_MODULE._ensure_phase_transition_allowed
 _ensure_contract_exists = BDO_MODULE._ensure_contract_exists
 _ensure_verification_complete = BDO_MODULE._ensure_verification_complete
 _invalidate_downstream_artifacts_if_contract_changed = BDO_MODULE._invalidate_downstream_artifacts_if_contract_changed
@@ -371,6 +372,57 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         _invalidate_handoff_if_upstream_changed(state)
 
         self.assertEqual(state["handoff_path"], "")
+
+    def test_phase_verify_requires_contract_for_medium_task(self) -> None:
+        state = default_state()
+        state["size"] = "M"
+
+        with self.assertRaisesRegex(ValueError, "phase verify requires a contract"):
+            _ensure_phase_transition_allowed(state, "verify")
+
+    def test_phase_implement_requires_existing_contract_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state = default_state()
+            state["size"] = "M"
+            state["contract_path"] = str(Path(tmpdir) / "bdo.contract.md")
+
+            with self.assertRaisesRegex(ValueError, "requires an existing contract file"):
+                _ensure_phase_transition_allowed(state, "implement")
+
+    def test_phase_verify_rejects_what_only_contract_for_large_task(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "bdo.contract.what.md"
+            contract_path.write_text("what\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "L"
+            state["contract_path"] = str(contract_path)
+            state["contract_stage"] = "what"
+
+            with self.assertRaisesRegex(ValueError, "requires a HOW or full contract"):
+                _ensure_phase_transition_allowed(state, "verify")
+
+    def test_phase_deliver_requires_verification_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "bdo.contract.md"
+            contract_path.write_text("contract\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "M"
+            state["contract_path"] = str(contract_path)
+
+            with self.assertRaisesRegex(ValueError, "phase deliver requires a verification report"):
+                _ensure_phase_transition_allowed(state, "deliver")
+
+    def test_phase_deliver_requires_existing_verification_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "bdo.contract.md"
+            contract_path.write_text("contract\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "M"
+            state["contract_path"] = str(contract_path)
+            state["verification_path"] = str(Path(tmpdir) / "bdo.verify.md")
+
+            with self.assertRaisesRegex(ValueError, "requires an existing verification report"):
+                _ensure_phase_transition_allowed(state, "deliver")
 
     def test_resume_summary_requests_how_after_what_for_large_tasks(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
