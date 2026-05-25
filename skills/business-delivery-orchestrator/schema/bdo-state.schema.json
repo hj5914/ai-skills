@@ -171,7 +171,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["added", "removed", "changed", "impact", "summary"],
+        "required": ["added", "removed", "changed", "impact", "summary", "follow_ups"],
         "properties": {
           "added": {
             "type": "array",
@@ -190,6 +190,10 @@
           },
           "summary": {
             "type": "string"
+          },
+          "follow_ups": {
+            "type": "array",
+            "items": { "type": "string" }
           }
         }
       }

@@ -367,6 +367,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
         "changed": args.changed or [],
         "impact": args.impact or "",
         "summary": summary,
+        "follow_ups": args.follow_up or [],
     }
     state.setdefault("delta", []).append(delta)
     _invalidate_handoff_if_upstream_changed(state)
@@ -504,6 +505,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--changed", action="append")
     p.add_argument("--impact")
     p.add_argument("--summary")
+    p.add_argument("--follow-up", action="append", help="Scope-external finding or deferred follow-up item")
     p.set_defaults(func=cmd_delta)
 
     return parser

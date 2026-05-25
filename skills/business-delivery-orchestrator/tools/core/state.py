@@ -137,6 +137,7 @@ def normalize_state(state: dict) -> dict:
             "changed": item.get("changed", []),
             "impact": item.get("impact", ""),
             "summary": item.get("summary", ""),
+            "follow_ups": item.get("follow_ups", []),
         }
         normalized_delta.append(normalized_item)
     merged["delta"] = normalized_delta
@@ -249,6 +250,10 @@ def validate_state(state: dict) -> None:
             raise ValueError(f"BDO state delta[{idx}].impact must be a string")
         if "summary" not in item or not isinstance(item["summary"], str):
             raise ValueError(f"BDO state delta[{idx}].summary must be a string")
+        if "follow_ups" not in item or not isinstance(item["follow_ups"], list) or not all(
+            isinstance(v, str) for v in item["follow_ups"]
+        ):
+            raise ValueError(f"BDO state delta[{idx}].follow_ups must be a list of strings")
 
     if not all(isinstance(v, str) for v in state["memory"]):
         raise ValueError("BDO state memory must be a list of strings")

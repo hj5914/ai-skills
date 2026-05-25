@@ -62,6 +62,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 1. Classify the request.
    - **Impact Scan**: Before sizing, perform a quick read-only scan of likely dependents. When using the bundled CLI, `scan` checks direct path matches first, then import/use references, then separates code/test/doc text fallback matches and applies a small sensitive-surface bump to inform sizing. Treat the result as a heuristic, not a complete dependency graph.
    - Identify user goal, affected surfaces, expected deliverable, deadline pressure, and ambiguity.
+   - Before committing to one M/L/XL workflow, check whether the request is actually several low-coupling fixes that should be split into separate deliveries.
    - For M+ tasks, report the classified size, risk, and rationale to the user before proceeding; if the user disagrees, reclassify.
    - If the request is only analysis or brainstorming, stop before implementation and return the analysis.
    - If the request qualifies for the fast path, use the fast path and avoid the full workflow.
@@ -106,6 +107,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - For M+ tasks, run `tools/bdo.py verify` before reporting verification complete.
    - **Cross-Phase Consistency Check (L/XL)**: Before running tests, verify Contract → Plan → Implementation alignment.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
+   - For `auth/data/payment/migration` work, include configuration presence checks and one key user or caller flow verification, not just build or typecheck.
    - Use `references/verification-gates.md` for verification depth and stop conditions.
    - Self-review the final diff for scope drift, existing-pattern fit, boundary cases, and unrelated changes before reporting completion.
 
@@ -113,6 +115,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - Report what changed, what was verified, known residual risks, and any follow-up that is truly useful.
    - **Knowledge Base Update**: After a successful delivery, append 1-2 reusable lessons to `MEMORY.md`.
    - For M+ tasks, run `tools/bdo.py handoff` before reporting delivery complete.
+   - Record scope-external findings or debt as explicit follow-up items instead of silently absorbing them into the current delivery.
    - If blocked, report the blocker, evidence, and the next concrete action.
    - Use `templates/handoff-template.md` unless the environment already has a stricter handoff format.
 

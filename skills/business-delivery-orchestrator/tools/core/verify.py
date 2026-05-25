@@ -60,6 +60,7 @@ def _as_bullets(items: list[str]) -> str:
 
 def _checks_for_surfaces(surfaces: list[str]) -> list[str]:
     checks = ["Inspect final diff for unrelated changes", "Confirm contract alignment before delivery"]
+    surface_set = set(surfaces)
     mapping = {
         "copy": "Run formatter or preview check if available",
         "config": "Run config validation or targeted typecheck",
@@ -77,6 +78,16 @@ def _checks_for_surfaces(surfaces: list[str]) -> list[str]:
     for surface in surfaces:
         if surface in mapping:
             checks.append(mapping[surface])
+    if "auth" in surface_set:
+        checks.append("Run login/session happy-path and denial-path verification, not just build or typecheck")
+    if "auth" in surface_set and {"ui", "backend"} & surface_set:
+        checks.append(
+            "Confirm cookie or session behavior, including sameSite and secure expectations for the active environment"
+        )
+    if "auth" in surface_set and {"api", "backend", "config"} & surface_set:
+        checks.append(
+            "Confirm required auth-related env or config keys exist and CORS or origin settings match the changed flow"
+        )
     if not surfaces:
         checks.append("Run one focused test or manual smoke check")
     return checks

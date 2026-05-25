@@ -76,6 +76,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(normalized["verification_summary"]["evidence"], [])
         self.assertEqual(normalized["verification_summary"]["gaps"], [])
         self.assertEqual(normalized["delta"][0]["summary"], "")
+        self.assertEqual(normalized["delta"][0]["follow_ups"], [])
         self.assertEqual(normalized["impact_scan"]["matched_files"], [])
         self.assertEqual(normalized["constraints_detected"], [])
         self.assertEqual(normalized["clarify_quiz"]["questions"], [])
@@ -101,6 +102,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(loaded["verification_summary"]["evidence"], [])
         self.assertEqual(loaded["verification_summary"]["gaps"], [])
         self.assertEqual(loaded["delta"][0]["summary"], "")
+        self.assertEqual(loaded["delta"][0]["follow_ups"], [])
         self.assertEqual(loaded["impact_scan"]["recommended_size"], "")
         self.assertEqual(loaded["contract_stage"], "")
 
@@ -159,6 +161,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
                 "changed": ["skills/foo.py"],
                 "impact": "ui copy updated",
                 "summary": "changed skills/foo.py; ui copy updated",
+                "follow_ups": ["Investigate legacy default password handling separately"],
             }
         ]
         state["verification_summary"] = {
@@ -186,6 +189,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("pytest tests/foo_test.py", rendered)
         self.assertIn("no e2e env", rendered)
         self.assertIn("contract alignment", rendered)
+        self.assertIn("Investigate legacy default password handling separately", rendered)
         self.assertNotIn("Inspect final diff", rendered)
         self.assertNotIn("\n- \n", rendered)
         self.assertNotIn("Not verified:\n- \n", rendered)
@@ -254,6 +258,20 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("src/consumer.ts", result["matched_files"])
         self.assertIn("src/notes.md", result["matched_files"])
         self.assertEqual(result["recommended_size"], "M")
+
+    def test_verification_summary_adds_sensitive_auth_flow_checks(self) -> None:
+        summary = BDO_MODULE.build_verification_summary(
+            {
+                "size": "L",
+                "risk": "high",
+                "surfaces": ["auth", "backend", "ui", "config"],
+            }
+        )
+
+        checks = "\n".join(summary["checks"])
+        self.assertIn("login/session happy-path and denial-path", checks)
+        self.assertIn("sameSite and secure expectations", checks)
+        self.assertIn("CORS or origin settings", checks)
 
     def test_impact_scan_separates_code_test_and_doc_text_matches(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -629,6 +647,11 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             "Consider running `quiz`",
             clarify_warning(size="L", risk="high", surfaces=["ui"], has_quiz=False),
         )
+
+    def test_clarify_warning_flags_possible_multi_delivery_scope(self) -> None:
+        warning = clarify_warning(size="L", risk="medium", surfaces=["ui", "backend", "auth"], has_quiz=False)
+
+        self.assertIn("one delivery or several independent fixes", warning)
 
     def test_handoff_requires_spec_and_quality_reviews_for_large_tasks(self) -> None:
         state = default_state()

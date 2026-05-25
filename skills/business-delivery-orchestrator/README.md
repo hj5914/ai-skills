@@ -82,4 +82,5 @@ examples/
 - `scan` 是启发式，不是完整依赖图；它会区分 direct/import/code/test/doc 命中，并对敏感关键词做小幅 size 上调。
 - `contract-what` / `contract-how` 用于 L/XL 两段式契约。
 - `classify` 和 contract 命令会在大任务或高风险任务上给出 `quiz` 的软提示。
+- `delta --follow-up` 可把实现中发现但不应并入当前范围的问题显式带到 handoff。
 - 模板文件是推荐默认值，不是强制格式；宿主规范优先。

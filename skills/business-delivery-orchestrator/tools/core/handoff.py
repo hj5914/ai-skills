@@ -61,6 +61,9 @@ def render_handoff(state: dict) -> str:
 
     risks = [f"size={state.get('size', '')}", f"risk={state.get('risk', '')}"]
     next_steps = escalation[:2] if escalation else ["Review residual risks and close the task"]
+    follow_ups = latest_delta.get("follow_ups", [])[:3] if latest_delta else []
+    if not follow_ups:
+        follow_ups = ["No explicit follow-up items recorded."]
     review_notes = []
     for review in reviews[-2:]:
         if not isinstance(review, dict):
@@ -87,6 +90,7 @@ def render_handoff(state: dict) -> str:
     template = replace_section_placeholder(template, "Verified:", list_block(verified_entries))
     not_verified = gaps[:2] if gaps else ["No explicit gaps recorded"]
     template = replace_section_placeholder(template, "Not verified:", list_block(not_verified))
+    template = replace_section_placeholder(template, "Follow-up:", list_block(follow_ups))
     template = replace_section_placeholder(template, "Lessons Learned (Update MEMORY.md):", list_block(lessons))
     template = replace_section_placeholder(template, "Risks:", list_block(risks))
     if next_steps:

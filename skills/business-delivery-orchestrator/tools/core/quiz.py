@@ -44,8 +44,13 @@ def build_clarify_quiz(*, objective: str, size: str, risk: str, surfaces: list[s
 def clarify_warning(*, size: str, risk: str, surfaces: list[str], has_quiz: bool) -> str:
     normalized_risk = risk.lower()
     surface_set = set(surfaces)
+    warnings: list[str] = []
+    if size in {"M", "L", "XL"} and len(surface_set) >= 3:
+        warnings.append(
+            "Confirm whether this is one delivery or several independent fixes before committing to a single workflow."
+        )
     if has_quiz:
-        return ""
+        return " ".join(warnings)
     if size in {"L", "XL"} or normalized_risk in {"high", "critical"} or surface_set & {"auth", "data", "external"}:
-        return "Consider running `quiz` before continuing so contract assumptions are explicit."
-    return ""
+        warnings.append("Consider running `quiz` before continuing so contract assumptions are explicit.")
+    return " ".join(warnings)
