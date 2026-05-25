@@ -1,4 +1,4 @@
-version: "1"
-display_name: "Business Delivery Orchestrator"
-short_description: "Deliver requirements with bounded delegation"
-default_prompt: "Use this skill to take a business requirement from analysis through implementation, verification, and handoff. Decide whether to stay single-agent or delegate bounded specialist work based on complexity."
+interface:
+  display_name: "Business Delivery Orchestrator"
+  short_description: "Deliver requirements with bounded delegation"
+  default_prompt: "Use this skill to take a business requirement from analysis through implementation, verification, and handoff. Decide whether to stay single-agent or delegate bounded specialist work based on complexity."
