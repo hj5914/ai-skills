@@ -255,6 +255,36 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("src/notes.md", result["matched_files"])
         self.assertEqual(result["recommended_size"], "M")
 
+    def test_impact_scan_separates_code_test_and_doc_text_matches(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "src").mkdir()
+            (root / "tests").mkdir()
+            (root / "docs").mkdir()
+            (root / "src" / "consumer.ts").write_text("const targetFlag = true;\n", encoding="utf-8")
+            (root / "tests" / "consumer.test.ts").write_text("expect(targetFlag).toBe(true)\n", encoding="utf-8")
+            (root / "docs" / "consumer.md").write_text("targetFlag rollout note\n", encoding="utf-8")
+
+            result = run_impact_scan(root, ["targetFlag"])
+
+        self.assertIn("1 code text fallback match(es)", result["summary"])
+        self.assertIn("1 test text fallback match(es)", result["summary"])
+        self.assertIn("1 doc text fallback match(es)", result["summary"])
+        self.assertEqual(result["recommended_size"], "S")
+
+    def test_impact_scan_bumps_size_for_sensitive_keywords(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "migrations").mkdir()
+            (root / "migrations" / "001_add_payment.sql").write_text("-- payment migration\n", encoding="utf-8")
+
+            result = run_impact_scan(root, ["payment"])
+
+        self.assertEqual(result["recommended_size"], "M")
+        self.assertIn("Sensitive keyword bump applied for:", result["notes"][-1])
+        self.assertIn("payment", result["notes"][-1])
+        self.assertIn("migration", result["notes"][-1])
+
     def test_render_contract_supports_what_and_how_passes(self) -> None:
         what = render_contract(
             objective="Add bulk archive",

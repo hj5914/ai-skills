@@ -79,7 +79,7 @@ examples/
 - 默认单 agent 执行，子代理只在边界清晰且收益明确时启用。
 - 只有在准备做委派决策时才需要读取 `references/delegation-matrix.md`；single-agent 和 fast-path 不需要为此增加流程负担。
 - `auth`、`data`、`payment`、`migration` 这类敏感 surface 在 CLI 中都会强制要求 full contract，且 handoff 前会校验 contract / verify 产物文件仍然存在。
-- `scan` 是启发式，不是完整依赖图。
+- `scan` 是启发式，不是完整依赖图；它会区分 direct/import/code/test/doc 命中，并对敏感关键词做小幅 size 上调。
 - `contract-what` / `contract-how` 用于 L/XL 两段式契约。
 - `classify` 和 contract 命令会在大任务或高风险任务上给出 `quiz` 的软提示。
 - 模板文件是推荐默认值，不是强制格式；宿主规范优先。

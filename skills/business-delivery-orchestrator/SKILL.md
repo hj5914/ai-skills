@@ -60,7 +60,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 ## Workflow
 
 1. Classify the request.
-   - **Impact Scan**: Before sizing, perform a quick read-only scan of likely dependents. When using the bundled CLI, `scan` checks direct path matches first, then import/use references, then plain-text fallback matches to inform sizing. Treat the result as a heuristic, not a complete dependency graph.
+   - **Impact Scan**: Before sizing, perform a quick read-only scan of likely dependents. When using the bundled CLI, `scan` checks direct path matches first, then import/use references, then separates code/test/doc text fallback matches and applies a small sensitive-surface bump to inform sizing. Treat the result as a heuristic, not a complete dependency graph.
    - Identify user goal, affected surfaces, expected deliverable, deadline pressure, and ambiguity.
    - For M+ tasks, report the classified size, risk, and rationale to the user before proceeding; if the user disagrees, reclassify.
    - If the request is only analysis or brainstorming, stop before implementation and return the analysis.
@@ -102,6 +102,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
      2. **Code Quality Review**: Inspect for correctness, performance, security, and maintainability. Prefer a separate Reviewer subagent (not the same one from Stage 1) when available.
      3. Identify 3 potential failure modes (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
      For M tasks, combine both stages into a single self-review pass.
+   - For L/XL tasks that require adversarial review, use at least one independent read-only Reviewer subagent when the environment supports subagents. If subagents are unavailable, proceed with role-based self-review but explicitly report that review independence is limited.
    - For M+ tasks, run `tools/bdo.py verify` before reporting verification complete.
    - **Cross-Phase Consistency Check (L/XL)**: Before running tests, verify Contract → Plan → Implementation alignment.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
