@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import re
 
 from core.templates import fill_once, load_template_code_block
 
@@ -48,6 +49,40 @@ def parse_memory_entry(entry: str) -> dict[str, str]:
     if entry.strip():
         result.setdefault("title", entry.splitlines()[0].lstrip("# ").strip())
     return result
+
+
+def split_memory_entries(document: str) -> list[str]:
+    text = document.strip()
+    if not text:
+        return []
+    parts = re.split(r"(?=^## )", text, flags=re.MULTILINE)
+    return [part.strip() for part in parts if part.strip()]
+
+
+def dedupe_memory_entries(entries: list[str]) -> list[str]:
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for entry in entries:
+        signature = memory_entry_signature(entry)
+        if signature in seen:
+            continue
+        seen.add(signature)
+        deduped.append(entry.strip())
+    return deduped
+
+
+def memory_entry_signature(entry: str) -> str:
+    parsed = parse_memory_entry(entry)
+    lesson = _normalize_signature_field(parsed.get("lesson", ""))
+    rule = _normalize_signature_field(parsed.get("rule", ""))
+    if lesson or rule:
+        return "|".join(part for part in (lesson, rule) if part)
+    context = _normalize_signature_field(parsed.get("context", ""))
+    return context or _normalize_signature_field(entry)
+
+
+def _normalize_signature_field(value: str) -> str:
+    return " ".join(value.lower().split())
 
 
 def _summarize_delta(delta: dict) -> str:

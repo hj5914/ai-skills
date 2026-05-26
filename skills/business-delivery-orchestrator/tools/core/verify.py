@@ -12,6 +12,10 @@ VERIFY_RECIPES = {
         "Recipe api-smoke: start the changed service and send one representative request that covers the modified contract.",
         "Recipe api-smoke: capture the observed status code or payload shape in runtime evidence.",
     ],
+    "frontend-backend-smoke": [
+        "Recipe frontend-backend-smoke: start the touched frontend and backend together and exercise one representative end-to-end flow across the changed boundary.",
+        "Recipe frontend-backend-smoke: capture the user-visible result plus one backend-observed proof such as response status, persisted change, or log line.",
+    ],
     "auth-runtime": [
         "Recipe auth-runtime: verify one login or session happy path and one denial or expired-session path in a running environment.",
         "Recipe auth-runtime: record cookie, token, origin, or CORS behavior that matters to the changed auth flow.",
@@ -19,6 +23,14 @@ VERIFY_RECIPES = {
     "config-runtime": [
         "Recipe config-runtime: start the service with deployment-like configuration and confirm required env or config keys are present.",
         "Recipe config-runtime: capture one startup log, health-path check, or equivalent runtime proof.",
+    ],
+    "env-change-runtime": [
+        "Recipe env-change-runtime: start the changed service or app with the new or changed environment variables actually populated.",
+        "Recipe env-change-runtime: record one observed proof that the runtime consumed the expected configuration rather than only compiling with it.",
+    ],
+    "deploy-config-check": [
+        "Recipe deploy-config-check: compare newly required env or config keys against the intended deployment-like environment before handoff.",
+        "Recipe deploy-config-check: record one startup, health-path, or deployment-log proof that the target environment shape is sufficient.",
     ],
 }
 

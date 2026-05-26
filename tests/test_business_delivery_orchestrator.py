@@ -15,14 +15,15 @@ TOOLS_DIR = Path(__file__).resolve().parents[1] / "skills" / "business-delivery-
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
+from core import templates as templates_module
 from core.handoff import render_handoff
 from core.contract import render_contract
-from core.memory import parse_memory_entry, render_memory_entry
+from core.memory import dedupe_memory_entries, parse_memory_entry, render_memory_entry, split_memory_entries
 from core.quiz import build_clarify_quiz, clarify_warning
-from core.scan import run_impact_scan
+from core.scan import mine_constraints, run_impact_scan
 from core.state import default_state, load_state, normalize_state, validate_state
-from core.templates import replace_section_placeholder
-from core.verify import render_verify
+from core.templates import load_template_code_block, replace_section_placeholder
+from core.verify import render_verify, verify_recipe_choices
 
 BDO_SPEC = importlib.util.spec_from_file_location("bdo_cli", TOOLS_DIR / "bdo.py")
 assert BDO_SPEC and BDO_SPEC.loader
@@ -57,6 +58,23 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         parser = build_parser()
         args = parser.parse_args(argv)
         return self._run_cli_func_json(args.func, args)
+
+    @staticmethod
+    def _skill_doc_text() -> str:
+        return (TOOLS_DIR.parent / "SKILL.md").read_text(encoding="utf-8")
+
+    @staticmethod
+    def _readme_text() -> str:
+        return (TOOLS_DIR.parent / "README.md").read_text(encoding="utf-8")
+
+    @staticmethod
+    def _cli_command_names() -> list[str]:
+        parser = build_parser()
+        subparsers_action = next(
+            action for action in parser._actions  # type: ignore[attr-defined]
+            if getattr(action, "choices", None)
+        )
+        return sorted(subparsers_action.choices.keys())
 
     def test_normalize_state_backfills_new_fields(self) -> None:
         legacy = {
@@ -407,6 +425,27 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertEqual(parsed["context"], "Smoke memory | tightened auth checks")
         self.assertEqual(parsed["title"], f"{date.today().isoformat()} - Smoke memory")
 
+    def test_memory_dedupes_same_lesson_and_rule(self) -> None:
+        entry_a = """## 2026-05-26 - A
+
+- Context: Flow A
+- Lesson: Verify deny paths explicitly.
+- Actionable rule for future work: Always test allow and deny together.
+- Evidence: test_a
+"""
+        entry_b = """## 2026-05-27 - B
+
+- Context: Flow B
+- Lesson: verify deny paths explicitly.
+- Actionable rule for future work: always test allow and deny together.
+- Evidence: test_b
+"""
+
+        deduped = dedupe_memory_entries([entry_a, entry_b])
+
+        self.assertEqual(len(deduped), 1)
+        self.assertIn("Flow A", deduped[0])
+
     def test_impact_scan_prefers_import_matches_over_plain_text(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -424,6 +463,60 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("src/consumer.ts", result["matched_files"])
         self.assertIn("src/notes.md", result["matched_files"])
         self.assertEqual(result["recommended_size"], "M")
+
+    def test_mine_constraints_detects_package_manager_scripts_frameworks_and_configs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "package.json").write_text(
+                json.dumps(
+                    {
+                        "packageManager": "pnpm@9.0.0",
+                        "scripts": {
+                            "test": "vitest run",
+                            "lint": "eslint .",
+                            "typecheck": "tsc --noEmit",
+                            "build": "vite build",
+                        },
+                        "dependencies": {"react": "^18.3.0"},
+                        "devDependencies": {"express": "^4.19.0"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (root / "tsconfig.json").write_text("{}", encoding="utf-8")
+            (root / ".eslintrc.json").write_text("{}", encoding="utf-8")
+            (root / ".prettierrc").write_text("{}", encoding="utf-8")
+
+            constraints = mine_constraints(root)
+
+        self.assertIn("Package manager: pnpm@9.0.0", constraints)
+        self.assertIn("Script test: vitest run", constraints)
+        self.assertIn("Script lint: eslint .", constraints)
+        self.assertIn("Script typecheck: tsc --noEmit", constraints)
+        self.assertIn("Script build: vite build", constraints)
+        self.assertIn("Framework/library detected: react@^18.3.0", constraints)
+        self.assertIn("Framework/library detected: express@^4.19.0", constraints)
+        self.assertIn("TypeScript config present", constraints)
+        self.assertIn("ESLint config present", constraints)
+        self.assertIn("Prettier config present", constraints)
+
+    def test_mine_constraints_reports_invalid_package_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "package.json").write_text("{not-json", encoding="utf-8")
+
+            constraints = mine_constraints(root)
+
+        self.assertIn("package.json exists but could not be parsed; inspect manually.", constraints)
+
+    def test_mine_constraints_returns_manual_hint_when_no_supported_files_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            constraints = mine_constraints(Path(tmpdir))
+
+        self.assertEqual(
+            constraints,
+            ["No supported config files detected automatically; mine constraints manually."],
+        )
 
     def test_verification_summary_adds_sensitive_auth_flow_checks(self) -> None:
         summary = BDO_MODULE.build_verification_summary(
@@ -456,6 +549,21 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("Recipe ui-smoke: render the changed screen", checks)
         self.assertIn("Recipe auth-runtime: verify one login or session happy path", checks)
         self.assertIn("still need host-run runtime checks", gaps)
+
+    def test_verification_recipe_covers_env_and_cross_boundary_runtime(self) -> None:
+        summary = BDO_MODULE.build_verification_summary(
+            {
+                "size": "L",
+                "risk": "high",
+                "surfaces": ["ui", "backend", "config"],
+            },
+            recipes=["frontend-backend-smoke", "env-change-runtime", "deploy-config-check"],
+        )
+
+        checks = "\n".join(summary["checks"])
+        self.assertIn("Recipe frontend-backend-smoke: start the touched frontend and backend together", checks)
+        self.assertIn("Recipe env-change-runtime: start the changed service or app", checks)
+        self.assertIn("Recipe deploy-config-check: compare newly required env or config keys", checks)
 
     def test_render_verify_separates_runtime_evidence(self) -> None:
         state = default_state()
@@ -556,6 +664,20 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             contract,
         )
 
+    def test_full_contract_uses_compact_not_in_scope_markers(self) -> None:
+        contract = render_contract(
+            objective="Tighten backend validation",
+            size="L",
+            risk="medium",
+            mode="full",
+            surfaces=["backend"],
+        )
+
+        self.assertIn("Unchanged in this scope.", contract)
+        self.assertNotIn("No frontend surface change planned.", contract)
+        self.assertNotIn("No responsive behavior change planned.", contract)
+        self.assertNotIn("No new accessibility surface is expected.", contract)
+
     def test_impact_scan_separates_code_test_and_doc_text_matches(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -610,6 +732,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("Verification plan:", how)
         self.assertIn("- Unit: focus on direct logic changes and boundary cases", how)
         self.assertIn("- E2E/manual:", how)
+        self.assertIn("Unchanged in this scope.", how)
 
     def test_contract_assumptions_are_deduplicated(self) -> None:
         contract = render_contract(
@@ -810,6 +933,11 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             summary = build_resume_summary(state)
 
         self.assertIn("Missing verification artifact", summary["blockers"][0])
+        self.assertEqual(summary["workflow_status"], "blocked")
+        self.assertEqual(summary["artifacts_to_review"], [str(contract_path)])
+        self.assertIn("resolve the blocker", summary["takeover_hint"])
+        self.assertIn("Resume blocked M task at phase `verify`.", summary["recovery_summary"])
+        self.assertIn("bdo.contract.md", summary["recovery_summary"])
         self.assertEqual(summary["next_step"], "Regenerate the missing verification report before handoff.")
         self.assertEqual(summary["suggested_command"], "verify --evidence \"...\"")
 
@@ -830,8 +958,98 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             summary = build_resume_summary(state)
 
         self.assertEqual(summary["blockers"], [])
+        self.assertEqual(summary["workflow_status"], "ready")
+        self.assertEqual(
+            summary["artifacts_to_review"],
+            [str(contract_path), str(verification_path)],
+        )
+        self.assertIn("verification or handoff artifact", summary["takeover_hint"])
+        self.assertIn("Resume M task at phase `verify`.", summary["recovery_summary"])
+        self.assertIn("bdo.verify.md", summary["recovery_summary"])
         self.assertEqual(summary["next_step"], "Generate the handoff artifact to complete delivery.")
         self.assertEqual(summary["suggested_command"], "handoff")
+
+    def test_memory_cli_skips_duplicate_append(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / ".bdo.state.json"
+            memory_path = Path(tmpdir) / "MEMORY.md"
+            state = default_state()
+            state["objective"] = "Auth hardening"
+            state["surfaces"] = ["auth"]
+            BDO_MODULE.save_state(state_path, state)
+
+            first_payload = self._run_cli_argv_json(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "memory",
+                    "--output",
+                    str(memory_path),
+                ]
+            )
+            second_payload = self._run_cli_argv_json(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "memory",
+                    "--output",
+                    str(memory_path),
+                ]
+            )
+
+            entries = split_memory_entries(memory_path.read_text(encoding="utf-8"))
+            updated_state = load_state(state_path)
+
+        self.assertTrue(first_payload["data"]["appended"])
+        self.assertFalse(second_payload["data"]["appended"])
+        self.assertEqual(first_payload["data"]["entry_count"], 1)
+        self.assertEqual(second_payload["data"]["entry_count"], 1)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(len(updated_state["memory"]), 1)
+
+    def test_load_template_code_block_raises_when_markdown_block_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            templates_root = Path(tmpdir)
+            bad_template = templates_root / "bad-template.md"
+            bad_template.write_text("# no markdown block here\n", encoding="utf-8")
+            original_templates_dir = templates_module.templates_dir
+            templates_module.templates_dir = lambda: templates_root
+            try:
+                with self.assertRaisesRegex(ValueError, "template code block not found: bad-template.md"):
+                    load_template_code_block("bad-template.md")
+            finally:
+                templates_module.templates_dir = original_templates_dir
+
+    def test_load_template_code_block_raises_when_markdown_block_is_unclosed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            templates_root = Path(tmpdir)
+            bad_template = templates_root / "bad-template.md"
+            bad_template.write_text("```markdown\nGoal:\n- missing fence\n", encoding="utf-8")
+            original_templates_dir = templates_module.templates_dir
+            templates_module.templates_dir = lambda: templates_root
+            try:
+                with self.assertRaisesRegex(ValueError, "template code block not closed: bad-template.md"):
+                    load_template_code_block("bad-template.md")
+            finally:
+                templates_module.templates_dir = original_templates_dir
+
+    def test_verify_recipe_choices_are_listed_in_skill_and_readme(self) -> None:
+        skill_text = self._skill_doc_text()
+        readme_text = self._readme_text()
+
+        for recipe in verify_recipe_choices():
+            self.assertIn(recipe, skill_text)
+            self.assertIn(recipe, readme_text)
+
+    def test_cli_commands_are_listed_in_skill_and_readme(self) -> None:
+        skill_text = self._skill_doc_text()
+        readme_text = self._readme_text()
+
+        for command in self._cli_command_names():
+            self.assertIn(command, skill_text)
+            self.assertIn(command, readme_text)
 
     def test_resume_summary_flags_phase_without_contract(self) -> None:
         state = default_state()

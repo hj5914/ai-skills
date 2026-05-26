@@ -15,7 +15,7 @@ if str(TOOLS_DIR) not in sys.path:
 
 from core.handoff import render_handoff
 from core.contract import render_contract
-from core.memory import parse_memory_entry, render_memory_entry
+from core.memory import dedupe_memory_entries, parse_memory_entry, render_memory_entry, split_memory_entries
 from core.quiz import build_clarify_quiz, clarify_warning
 from core.scan import mine_constraints, run_impact_scan
 from core.state import (
@@ -335,17 +335,25 @@ def cmd_memory(args: argparse.Namespace) -> int:
     )
     memory_path = args.output or Path.cwd() / "MEMORY.md"
     previous = memory_path.read_text(encoding="utf-8") if memory_path.exists() else ""
-    combined = previous.rstrip() + ("\n\n" if previous.strip() else "") + entry.strip() + "\n"
+    existing_entries = split_memory_entries(previous)
+    merged_entries = dedupe_memory_entries(existing_entries + [entry.strip()])
+    appended = len(merged_entries) > len(existing_entries)
+    combined = ("\n\n".join(merged_entries) + "\n") if merged_entries else ""
     _write_text(memory_path, combined)
-    state.setdefault("memory", []).append(entry.strip())
+    state["memory"] = dedupe_memory_entries(state.get("memory", []) + [entry.strip()])
     set_phase(state, "memory")
     save_state(state_path, state)
+    parsed = parse_memory_entry(entry)
     return _emit(
         args,
         command="memory",
         state_path=state_path,
         output_path=memory_path,
-        data=parse_memory_entry(entry),
+        data={
+            **parsed,
+            "appended": appended,
+            "entry_count": len(merged_entries),
+        },
     )
 
 
@@ -721,11 +729,41 @@ def build_resume_summary(state: dict) -> dict:
     elif phase == "deliver" and handoff_exists:
         next_step = "Delivery artifacts are present; review residual risks or close the task."
 
+    artifact_review_order = [
+        ("contract", contract_path, contract_exists),
+        ("verification", verification_path, verification_exists),
+        ("handoff", handoff_path, handoff_exists),
+    ]
+    artifacts_to_review = [
+        path
+        for _label, path, exists in artifact_review_order
+        if path and exists
+    ]
+    workflow_status = "blocked" if blockers else "ready"
+    if blockers:
+        takeover_hint = "Inspect the latest existing artifact, resolve the blocker, then run the suggested command."
+    elif phase in {"verify", "deliver"}:
+        takeover_hint = "Inspect the latest verification or handoff artifact, then continue from the suggested command."
+    elif contract_exists:
+        takeover_hint = "Inspect the current contract artifact before continuing implementation."
+    else:
+        takeover_hint = "No artifact context exists yet; start from the suggested command."
+    artifact_phrase = ", ".join(Path(path).name for path in artifacts_to_review) if artifacts_to_review else "no existing artifacts"
+    if blockers:
+        recovery_summary = (
+            f"Resume blocked {size} task at phase `{phase}`. Review {artifact_phrase}, clear blockers, then run `{suggested_command or 'the next required command'}`."
+        )
+    else:
+        recovery_summary = (
+            f"Resume {size} task at phase `{phase}`. Review {artifact_phrase}, then continue with `{suggested_command or 'the next workflow step'}`."
+        )
+
     return {
         "objective": state.get("objective", ""),
         "phase": phase,
         "size": size,
         "risk": state.get("risk", ""),
+        "workflow_status": workflow_status,
         "surfaces": state.get("surfaces", []),
         "contract_stage": contract_stage,
         "artifacts": {
@@ -736,9 +774,12 @@ def build_resume_summary(state: dict) -> dict:
             "handoff_path": handoff_path,
             "handoff_exists": handoff_exists,
         },
+        "artifacts_to_review": artifacts_to_review,
         "completed_reviews": completed_review_kinds,
         "blocked_recovery": blocked_recovery,
         "blockers": blockers,
+        "takeover_hint": takeover_hint,
+        "recovery_summary": recovery_summary,
         "next_step": next_step,
         "suggested_command": suggested_command,
     }

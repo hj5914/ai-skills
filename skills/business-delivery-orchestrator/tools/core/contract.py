@@ -9,8 +9,8 @@ from core.templates import (
 )
 
 SURFACE_BEHAVIOR = {
-    "ui": "Update user-visible states and feedback using existing UI patterns.",
-    "backend": "Keep backend validation and business rules aligned with the requested behavior.",
+    "ui": "Keep visible states and feedback aligned with existing UI patterns.",
+    "backend": "Keep validation and business rules aligned with the requested behavior.",
     "api": "Preserve request/response contract alignment across callers and handlers.",
     "auth": "Enforce explicit allow/deny behavior for permission-sensitive paths.",
     "data": "Preserve data compatibility and rollback reasoning for stored state changes.",
@@ -22,6 +22,8 @@ SURFACE_BEHAVIOR = {
     "payment": "Preserve payment correctness, idempotency, and explicit success/failure behavior.",
     "migration": "Preserve migration safety, compatibility, and rollback reasoning.",
 }
+
+UNCHANGED_SCOPE = "Unchanged in this scope."
 
 
 def render_contract(
@@ -124,14 +126,14 @@ def _render_how_contract(
     template = fill_once(template, "- Outputs:", f"- Outputs: {_data_outputs(surfaces)}")
     template = fill_once(template, "- Validation:", f"- Validation: {_validation_defaults(surfaces)}")
     template = fill_once(template, "- Error behavior:", f"- Error behavior: {_error_behavior_defaults(surfaces)}")
-    template = fill_once(template, "- Permissions:", f"- Permissions: {'Follow the existing access-control model and denial behavior.' if 'auth' in surfaces else 'No new permission model assumed.'}")
-    template = fill_once(template, "- Views/components:", f"- Views/components: {'Reuse existing screens/components that expose the changed flow.' if 'ui' in surfaces else 'No frontend surface change planned.'}")
-    template = fill_once(template, "- State transitions:", f"- State transitions: {'Keep visible state, loading, empty, and failure transitions aligned with the contract.' if 'ui' in surfaces else 'No client-side state transition change planned.'}")
+    template = fill_once(template, "- Permissions:", f"- Permissions: {'Follow the existing access-control model and denial behavior.' if 'auth' in surfaces else UNCHANGED_SCOPE}")
+    template = fill_once(template, "- Views/components:", f"- Views/components: {'Reuse existing screens/components that expose the changed flow.' if 'ui' in surfaces else UNCHANGED_SCOPE}")
+    template = fill_once(template, "- State transitions:", f"- State transitions: {'Keep visible state, loading, empty, and failure transitions aligned with the contract.' if 'ui' in surfaces else UNCHANGED_SCOPE}")
     template = fill_once(template, "- Accessibility:", f"- Accessibility: {_accessibility_defaults(surfaces)}")
     template = fill_once(template, "- Responsive behavior:", f"- Responsive behavior: {_responsive_defaults(surfaces)}")
-    template = fill_once(template, "- Endpoints/functions:", f"- Endpoints/functions: {'Update the relevant endpoint/service boundary without widening scope.' if {'backend', 'api', 'auth', 'data'} & set(surfaces) else 'No backend endpoint or service contract change planned.'}")
-    template = fill_once(template, "- Persistence:", f"- Persistence: {'Preserve compatibility of persisted data and rollback reasoning.' if 'data' in surfaces else 'No persistence schema change planned.'}")
-    template = fill_once(template, "- Side effects:", f"- Side effects: {'Make external calls and notifications explicit in the implementation boundary.' if 'external' in surfaces else 'No new external side effects planned.'}")
+    template = fill_once(template, "- Endpoints/functions:", f"- Endpoints/functions: {'Update the relevant endpoint/service boundary without widening scope.' if {'backend', 'api', 'auth', 'data'} & set(surfaces) else UNCHANGED_SCOPE}")
+    template = fill_once(template, "- Persistence:", f"- Persistence: {'Preserve compatibility of persisted data and rollback reasoning.' if 'data' in surfaces else UNCHANGED_SCOPE}")
+    template = fill_once(template, "- Side effects:", f"- Side effects: {'Make external calls and notifications explicit in the implementation boundary.' if 'external' in surfaces else UNCHANGED_SCOPE}")
     template = fill_once(template, "- Observability:", f"- Observability: {_observability_defaults(surfaces)}")
     template = fill_once(template, "- Unit:", f"- Unit: {verification['unit']}")
     template = fill_once(template, "- Integration:", f"- Integration: {verification['integration']}")
@@ -200,32 +202,32 @@ def _render_full_contract(
     permissions = (
         "Follow the existing access-control model and denial behavior."
         if "auth" in surfaces or "payment" in surfaces
-        else "No new permission model assumed."
+        else UNCHANGED_SCOPE
     )
     frontend_views = (
         "Reuse existing screens/components that expose the changed flow."
         if "ui" in surfaces
-        else "No frontend surface change planned."
+        else UNCHANGED_SCOPE
     )
     frontend_state = (
         "Keep visible state, loading, empty, and failure transitions aligned with the contract."
         if "ui" in surfaces
-        else "No client-side state transition change planned."
+        else UNCHANGED_SCOPE
     )
     backend_endpoints = (
         "Update the relevant endpoint/service boundary without widening scope."
         if {"backend", "api", "auth", "data", "payment", "migration"} & set(surfaces)
-        else "No backend endpoint or service contract change planned."
+        else UNCHANGED_SCOPE
     )
     backend_persistence = (
         "Preserve compatibility of persisted data and rollback reasoning."
         if {"data", "migration"} & set(surfaces)
-        else "No persistence schema change planned."
+        else UNCHANGED_SCOPE
     )
     backend_side_effects = (
         "Make external calls and notifications explicit in the implementation boundary."
         if "external" in surfaces
-        else "No new external side effects planned."
+        else UNCHANGED_SCOPE
     )
     verification = _verification_plan_for_full(surfaces)
     acceptance = _acceptance_defaults(surfaces)[:3]
@@ -277,16 +279,16 @@ def _constraints_defaults(surfaces: list[str], *, constraints_detected: list[str
     if constraints_detected:
         items.extend(constraints_detected[:4])
     if {"api", "backend", "auth", "data"} & set(surfaces):
-        items.append("Preserve existing contracts and avoid widening external behavior without explicit approval.")
+        items.append("Preserve existing contracts; do not widen external behavior without explicit approval.")
     else:
-        items.append("Stay within existing repository patterns and avoid incidental redesign.")
+        items.append("Stay within existing repository patterns; avoid incidental redesign.")
     return items
 
 
 def _behavior_defaults(surfaces: list[str]) -> list[str]:
     defaults = [SURFACE_BEHAVIOR[s] for s in surfaces if s in SURFACE_BEHAVIOR]
     if not defaults:
-        defaults.append("Keep the requested behavior aligned with the existing repository patterns.")
+        defaults.append("Only the requested behavior should change; unrelated flows stay unchanged.")
     return defaults
 
 
@@ -300,7 +302,7 @@ def _non_goal_defaults(surfaces: list[str]) -> list[str]:
 
 
 def _acceptance_defaults(surfaces: list[str]) -> list[str]:
-    items = ["The changed behavior satisfies the requested outcome without expanding scope."]
+    items = ["The requested outcome works without expanding scope."]
     if "ui" in surfaces:
         items.append("User-visible states cover success, loading, empty, and failure where relevant.")
     if "api" in surfaces or "backend" in surfaces:
@@ -360,7 +362,7 @@ def _failure_states(surfaces: list[str]) -> str:
 def _empty_loading_defaults(surfaces: list[str]) -> str:
     if "ui" in surfaces:
         return "Define loading, empty, and retry states wherever the changed flow can pause or fail."
-    return "No user-visible loading or empty state is expected."
+    return UNCHANGED_SCOPE
 
 
 def _data_inputs(surfaces: list[str]) -> str:
@@ -400,20 +402,20 @@ def _error_behavior_defaults(surfaces: list[str]) -> str:
 
 def _accessibility_defaults(surfaces: list[str]) -> str:
     if "ui" in surfaces:
-        return "Preserve existing keyboard, focus, labeling, and screen-reader semantics."
-    return "No new accessibility surface is expected."
+        return "Preserve keyboard, focus, labeling, and screen-reader semantics if the changed UI touches them."
+    return UNCHANGED_SCOPE
 
 
 def _responsive_defaults(surfaces: list[str]) -> str:
     if "ui" in surfaces:
-        return "Preserve existing breakpoint behavior and avoid layout regressions."
-    return "No responsive behavior change planned."
+        return "Preserve existing breakpoint behavior if this change touches layout-sensitive UI."
+    return UNCHANGED_SCOPE
 
 
 def _observability_defaults(surfaces: list[str]) -> str:
     if {"backend", "api", "external", "data", "auth"} & set(surfaces):
         return "Reuse existing logs/metrics where available; add only the minimal diagnostics needed for changed paths."
-    return "No observability change planned."
+    return UNCHANGED_SCOPE
 
 
 def _verification_plan_for_full(surfaces: list[str]) -> dict[str, str]:

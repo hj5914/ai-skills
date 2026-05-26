@@ -27,8 +27,10 @@ Fast path steps:
 3. Run the smallest meaningful check.
 4. Report the result briefly.
 
+For XS/S tasks, do not open BDO reference files or run the bundled CLI by default; start with local grep/read plus one focused check, and escalate only if a hard trigger, real ambiguity, or cross-boundary risk appears.
 For XS/S tasks, inspect with local grep/read first; do not spawn explorer agents unless the local scan fails to identify the touched files or pattern quickly.
 If a conservative assumption changes user-visible presentation, state the assumption explicitly before implementing.
+Hard gates do not imply maximum ceremony: if a sensitive fix is narrow, keep it single-agent, keep the required contract minimal, and avoid extra artifact churn beyond the enforced gates.
 
 Skip delivery-contract templates, subagent decisions, and detailed handoff sections on the fast path unless a risk appears.
 
@@ -96,7 +98,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - **Micro-Tasking**: Break the plan into granular tasks that can be verified in ~5 minutes (Red-Green-Refactor cycle).
    - Prefer the repository's existing patterns.
    - Keep changes scoped to the delivery contract.
-   - **Contract Alignment**: After each sub-task, verify the implementation still aligns with the contract. If deviating, pause and update the contract delta before proceeding.
+   - **Contract Alignment**: Re-check contract alignment after each meaningful slice and before verification or handoff. If the implementation drifts, pause and update the contract delta before proceeding.
    - Treat subagent output as draft input, not final truth.
    - If the user changes scope midstream, record the delta before continuing.
 
@@ -119,7 +121,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 
 7. Deliver.
    - Report what changed, what was verified, known residual risks, and any follow-up that is truly useful.
-   - **Knowledge Base Update**: After a successful delivery, append 1-2 reusable lessons to `MEMORY.md`.
+   - **Knowledge Base Update**: After a successful delivery, append 1-2 reusable lessons to `MEMORY.md`. Skip entries whose lesson/rule already exists unless the new entry materially changes the guardrail.
    - For M+ tasks, run `tools/bdo.py handoff` before reporting delivery complete.
    - Record scope-external findings or debt as explicit follow-up items instead of silently absorbing them into the current delivery.
    - If blocked, report the blocker, evidence, and the next concrete action.
@@ -220,7 +222,7 @@ Summarize subagent results before integrating them. Do not paste full long outpu
 
 - **Confirmation Protocol**: On critical gates (Contract approval, Plan review, Release), prefer a 3-line summary and a specific confirmation keyword (e.g., `CONFIRM_PLAN`) when the host environment and user workflow support explicit approvals.
 - Cap the active delivery contract at roughly 20 bullets unless the user asks for a detailed plan.
-- Ask at most three clarifying questions before making conservative assumptions.
+- Ask at most three clarifying questions before making conservative assumptions on XS/S/M work; for L/XL, ask only the questions that materially change behavior, safety, or irreversible actions.
 - Do not read reference files unless the current phase needs them.
 - Do not run broad test suites when a focused check covers the change and risk is low.
 - Do not force product-style acceptance criteria onto pure refactors, dependency fixes, or infra chores.
@@ -253,7 +255,7 @@ This skill includes a local helper at `tools/bdo.py`. Use it when structured art
 - Core commands: `init`, `classify`, `phase`, `quiz`, `scan`, `mine`, `contract`, `contract-what`, `contract-how`, `review`, `verify`, `handoff`, `memory`, `delta`, `status`, `resume`
 - Enforced checks: `auth/data/payment/migration` work requires a full contract; manual `phase` transitions cannot bypass required contract / verify artifacts; M/L/XL verification requires a contract; L/XL work cannot stop at `contract-what` and must reach `contract-how` or `contract --mode full`; handoff requires contract and verification files that still exist; L/XL handoff also requires completed `spec` and `quality` reviews
 - Soft reminders: `classify` and contract commands suggest `quiz` when the task is large or risky and no clarify quiz has been recorded yet
-- `resume` summarizes missing artifacts, phase/state mismatches, and minimal recovery actions for blocked reviews
-- `verify --recipe smoke|ui-smoke|api-smoke|auth-runtime|config-runtime` adds verification checklist templates only; it does not start services, send requests, or run browsers for you
+- `resume` summarizes missing artifacts, phase/state mismatches, minimal recovery actions for blocked reviews, which existing artifacts a new session should inspect first, and a short recovery summary you can reuse when resuming work
+- `verify --recipe smoke|ui-smoke|api-smoke|frontend-backend-smoke|auth-runtime|config-runtime|env-change-runtime|deploy-config-check` adds verification checklist templates only; it does not start services, send requests, or run browsers for you
 - Output: add `--json` for machine-readable output
 - State shape: see `schema/bdo-state.schema.json`
