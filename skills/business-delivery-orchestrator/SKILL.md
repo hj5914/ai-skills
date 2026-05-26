@@ -27,6 +27,9 @@ Fast path steps:
 3. Run the smallest meaningful check.
 4. Report the result briefly.
 
+For XS/S tasks, inspect with local grep/read first; do not spawn explorer agents unless the local scan fails to identify the touched files or pattern quickly.
+If a conservative assumption changes user-visible presentation, state the assumption explicitly before implementing.
+
 Skip delivery-contract templates, subagent decisions, and detailed handoff sections on the fast path unless a risk appears.
 
 Users can explicitly request the fast path by saying "quick fix", "fast path", or "skip process" unless a Hard Trigger applies.
@@ -153,6 +156,7 @@ Do not delegate when:
 - The next step depends on the subagent's answer and would block local progress.
 - The subagent would need to modify the same files as the primary agent without isolation.
 - The only benefit is role theater.
+- The task is XS/S and local grep/read can identify the touched files and existing pattern quickly.
 
 Before spawning subagents, state the reason in one sentence. If the reason sounds weak, stay single-agent.
 
