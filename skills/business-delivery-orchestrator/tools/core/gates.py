@@ -2,10 +2,37 @@ from __future__ import annotations
 
 from pathlib import Path
 
+SIZE_ORDER = {"XS": 0, "S": 1, "M": 2, "L": 3, "XL": 4}
+SENSITIVE_SURFACE_MIN_SIZE = {
+    "auth": "M",
+    "data": "M",
+    "migration": "M",
+    "payment": "L",
+}
+SENSITIVE_SURFACE_MESSAGES = {
+    "auth": "auth surface requires at least M plus a full contract; fast path is not allowed.",
+    "data": "data surface requires at least M plus a full contract; fast path is not allowed.",
+    "migration": "migration surface requires at least M plus a full contract; fast path is not allowed.",
+    "payment": "payment surface requires at least L plus a full contract; fast path is not allowed.",
+}
+
+
+def effective_size_and_gate_reasons(requested_size: str, surfaces: list[str]) -> tuple[str, list[str]]:
+    effective_size = requested_size
+    reasons: list[str] = []
+    for surface in ("auth", "data", "migration", "payment"):
+        if surface not in surfaces:
+            continue
+        min_size = SENSITIVE_SURFACE_MIN_SIZE[surface]
+        if SIZE_ORDER[min_size] > SIZE_ORDER[effective_size]:
+            effective_size = min_size
+        reasons.append(SENSITIVE_SURFACE_MESSAGES[surface])
+    return effective_size, reasons
+
 
 def ensure_contract_allowed(state: dict, mode: str) -> None:
     surfaces = set(state.get("surfaces", []))
-    size = state.get("size", "")
+    size, _ = effective_size_and_gate_reasons(state.get("size", ""), state.get("surfaces", []))
     if surfaces & {"auth", "data", "payment", "migration"} and mode != "full":
         raise ValueError("auth/data/payment/migration tasks require `contract --mode full`")
     if size in {"L", "XL"} and mode != "full":
@@ -13,7 +40,7 @@ def ensure_contract_allowed(state: dict, mode: str) -> None:
 
 
 def ensure_phase_transition_allowed(state: dict, phase: str) -> None:
-    size = state.get("size", "")
+    size, _ = effective_size_and_gate_reasons(state.get("size", ""), state.get("surfaces", []))
     contract_path = state.get("contract_path", "")
     contract_stage = state.get("contract_stage", "")
     verification_path = state.get("verification_path", "")
@@ -32,7 +59,7 @@ def ensure_phase_transition_allowed(state: dict, phase: str) -> None:
 
 
 def ensure_contract_exists(state: dict, *, command: str) -> None:
-    size = state.get("size", "")
+    size, _ = effective_size_and_gate_reasons(state.get("size", ""), state.get("surfaces", []))
     contract_path = state.get("contract_path", "")
     contract_stage = state.get("contract_stage", "")
     if size in {"M", "L", "XL"} and not contract_path:
@@ -44,7 +71,7 @@ def ensure_contract_exists(state: dict, *, command: str) -> None:
 
 
 def ensure_verification_complete(state: dict) -> None:
-    size = state.get("size", "")
+    size, _ = effective_size_and_gate_reasons(state.get("size", ""), state.get("surfaces", []))
     summary = state.get("verification_summary", {})
     evidence = summary.get("evidence", []) if isinstance(summary, dict) else []
     verification_path = state.get("verification_path", "")

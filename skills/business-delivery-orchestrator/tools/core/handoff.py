@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from core.memory import parse_memory_entry
 from core.templates import list_block, load_template_code_block, replace_section_placeholder
+from core.verify import format_verification_gaps, verification_gap_hints
 
 COMPLETED_REVIEW_STATUSES = {"DONE", "DONE_WITH_CONCERNS"}
 
@@ -24,18 +25,6 @@ def _delta_summary(delta: dict) -> str:
     if summary:
         parts.insert(0, summary)
     return " | ".join(parts)
-
-
-def _runtime_config_gap(state: dict) -> str:
-    surfaces = set(state.get("surfaces", []))
-    summary = state.get("verification_summary", {})
-    runtime_evidence = summary.get("runtime_evidence", []) if isinstance(summary, dict) else []
-    if "config" in surfaces and surfaces & {"backend", "api", "auth"} and not runtime_evidence:
-        return (
-            "Runtime configuration was not verified with deployment-like startup or health-path evidence; "
-            "environment-variable availability is still unproven."
-        )
-    return ""
 
 
 def render_handoff(state: dict) -> str:
@@ -102,12 +91,8 @@ def render_handoff(state: dict) -> str:
     if changed:
         template = replace_section_placeholder(template, "Changed:", list_block(changed))
     template = replace_section_placeholder(template, "Verified:", list_block(verified_entries))
-    runtime_gap = _runtime_config_gap(state)
-    not_verified = list(gaps[:2]) if gaps else ["No explicit gaps recorded"]
-    if runtime_gap:
-        if not gaps:
-            not_verified = []
-        not_verified.append(runtime_gap)
+    derived_gaps = verification_gap_hints(state, runtime_evidence=runtime_evidence, gaps=gaps)
+    not_verified = format_verification_gaps(derived_gaps[:4]) if derived_gaps else ["No explicit gaps recorded"]
     template = replace_section_placeholder(template, "Not verified:", list_block(not_verified))
     template = replace_section_placeholder(template, "Follow-up:", list_block(follow_ups))
     template = replace_section_placeholder(template, "Lessons Learned (Update MEMORY.md):", list_block(lessons))

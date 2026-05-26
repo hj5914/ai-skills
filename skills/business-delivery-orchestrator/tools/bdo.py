@@ -19,6 +19,7 @@ from core.gates import ensure_contract_allowed as _ensure_contract_allowed
 from core.gates import ensure_contract_exists as _ensure_contract_exists
 from core.gates import ensure_phase_transition_allowed as _ensure_phase_transition_allowed
 from core.gates import ensure_verification_complete as _ensure_verification_complete
+from core.gates import effective_size_and_gate_reasons
 from core.gates import invalidate_downstream_artifacts_if_contract_changed as _invalidate_downstream_artifacts_if_contract_changed_core
 from core.gates import invalidate_handoff_if_upstream_changed as _invalidate_handoff_if_upstream_changed
 from core.memory import dedupe_memory_entries, parse_memory_entry, render_memory_entry, split_memory_entries
@@ -33,7 +34,12 @@ from core.state import (
     save_state,
     set_phase,
 )
-from core.verify import build_verification_summary, render_verify, verify_recipe_choices
+from core.verify import (
+    build_verification_summary,
+    has_deploy_like_runtime_evidence,
+    render_verify,
+    verify_recipe_choices,
+)
 
 
 def _invalidate_downstream_artifacts_if_contract_changed(
@@ -108,12 +114,13 @@ def cmd_resume(args: argparse.Namespace) -> int:
 def cmd_classify(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
-    state["size"] = args.size
     state["risk"] = args.risk
     if args.clear_surfaces:
         state["surfaces"] = []
     elif args.surface:
         state["surfaces"] = args.surface
+    effective_size, hard_gates = effective_size_and_gate_reasons(args.size, state["surfaces"])
+    state["size"] = effective_size
     set_phase(state, "classify")
     save_state(state_path, state)
     return _emit(
@@ -121,9 +128,11 @@ def cmd_classify(args: argparse.Namespace) -> int:
         command="classify",
         state_path=state_path,
         data={
-            "size": args.size,
+            "requested_size": args.size,
+            "size": effective_size,
             "risk": args.risk,
             "surfaces": state["surfaces"],
+            "hard_gates": hard_gates,
             "warning": _clarify_warning(state),
         },
     )
@@ -296,7 +305,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
         recipes=recipes,
     )
     set_phase(state, "verify")
-    report = render_verify(state)
+    report = render_verify(state, recipes=recipes)
     report_path = args.output or Path.cwd() / "bdo.verify.md"
     _write_text(report_path, report)
     state["verification_path"] = str(report_path)
@@ -606,10 +615,10 @@ def _clarify_warning(state: dict) -> str:
 
 def _verify_warning(state: dict, *, runtime_evidence: list[str]) -> str:
     surfaces = set(state.get("surfaces", []))
-    if "config" in surfaces and surfaces & {"backend", "api", "auth"} and not runtime_evidence:
+    if "config" in surfaces and surfaces & {"backend", "api", "auth"} and not has_deploy_like_runtime_evidence(runtime_evidence):
         return (
-            "Config changes affecting backend/api/auth were verified without runtime evidence. "
-            "Do not treat verification as runtime-safe until startup or health-path behavior is checked."
+            "Config changes affecting backend/api/auth were verified without deployment-like runtime evidence. "
+            "Do not treat verification as deploy-safe until startup or health-path behavior is checked."
         )
     return ""
 

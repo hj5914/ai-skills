@@ -23,7 +23,13 @@ from core.quiz import build_clarify_quiz, clarify_warning
 from core.scan import mine_constraints, run_impact_scan
 from core.state import default_state, load_state, normalize_state, validate_state
 from core.templates import load_template_code_block, replace_section_placeholder
-from core.verify import render_verify, verify_recipe_choices
+from core.verify import (
+    format_verification_gaps,
+    has_deploy_like_runtime_evidence,
+    render_verify,
+    verification_gap_hints,
+    verify_recipe_choices,
+)
 
 BDO_SPEC = importlib.util.spec_from_file_location("bdo_cli", TOOLS_DIR / "bdo.py")
 assert BDO_SPEC and BDO_SPEC.loader
@@ -174,6 +180,34 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             updated = load_state(state_path)
 
         self.assertEqual(updated["surfaces"], [])
+
+    def test_classify_escalates_requested_size_for_sensitive_surface_and_reports_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / ".bdo.state.json"
+            parser = build_parser()
+            args = parser.parse_args(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "classify",
+                    "--size",
+                    "S",
+                    "--risk",
+                    "low",
+                    "--surface",
+                    "auth",
+                ]
+            )
+
+            payload = self._run_cli_func_json(cmd_classify, args)
+            updated = load_state(state_path)
+
+        self.assertEqual(payload["data"]["requested_size"], "S")
+        self.assertEqual(payload["data"]["size"], "M")
+        self.assertIn("auth surface requires at least M plus a full contract", payload["data"]["hard_gates"][0])
+        self.assertEqual(updated["size"], "M")
+        self.assertEqual(updated["surfaces"], ["auth"])
 
     def test_cli_e2e_flow_for_large_task(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -400,8 +434,70 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
 
         rendered = render_handoff(state)
 
-        self.assertIn("Runtime configuration was not verified", rendered)
-        self.assertIn("environment-variable availability is still unproven", rendered)
+        self.assertIn("Runtime: [runtime_not_run]", rendered)
+        self.assertIn("Deploy: [deploy_env_unchecked]", rendered)
+
+    def test_render_handoff_groups_static_runtime_and_deploy_gaps(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["config", "backend", "ui"]
+        state["verification_summary"] = {
+            "checks": ["Inspect final diff"],
+            "escalation": [],
+            "stop_conditions": [],
+            "evidence": ["pnpm build"],
+            "runtime_evidence": [],
+            "gaps": ["manual UI flow not run"],
+        }
+
+        rendered = render_handoff(state)
+
+        static_index = rendered.index("Static: manual UI flow not run")
+        runtime_index = rendered.index("Runtime: [runtime_not_run]")
+        deploy_index = rendered.index("Deploy: [deploy_env_unchecked]")
+        self.assertLess(static_index, runtime_index)
+        self.assertLess(runtime_index, deploy_index)
+
+    def test_verification_gap_hints_classify_runtime_and_deploy_missing(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["config", "backend", "auth"]
+
+        gaps = verification_gap_hints(state, runtime_evidence=[], gaps=[])
+
+        self.assertIn(
+            "[runtime_not_run] No runtime or end-to-end evidence was recorded yet for the changed app/service flow.",
+            gaps,
+        )
+        self.assertIn(
+            "[deploy_env_unchecked] Deployment-like startup or health-path verification is still missing; required env or config keys remain unproven at runtime.",
+            gaps,
+        )
+
+    def test_verification_gap_hints_distinguish_runtime_from_deploy_evidence(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["config", "backend", "auth"]
+
+        gaps = verification_gap_hints(
+            state,
+            runtime_evidence=["curl -i http://localhost:3000/login returned 200 and set-cookie"],
+            gaps=[],
+        )
+
+        self.assertNotIn(
+            "[runtime_not_run] No runtime or end-to-end evidence was recorded yet for the changed app/service flow.",
+            gaps,
+        )
+        self.assertIn(
+            "[deploy_env_unchecked] Deployment-like startup or health-path verification is still missing; required env or config keys remain unproven at runtime.",
+            gaps,
+        )
+
+    def test_has_deploy_like_runtime_evidence_detects_health_or_startup_signals(self) -> None:
+        self.assertTrue(
+            has_deploy_like_runtime_evidence(
+                ["service startup log emitted", "curl -i http://localhost:3000/health returned 200"]
+            )
+        )
+        self.assertFalse(has_deploy_like_runtime_evidence(["curl -i http://localhost:3000/login returned 200"]))
 
     def test_render_memory_entry_derives_defaults_from_state(self) -> None:
         state = default_state()
@@ -548,7 +644,8 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         gaps = "\n".join(summary["gaps"])
         self.assertIn("Recipe ui-smoke: render the changed screen", checks)
         self.assertIn("Recipe auth-runtime: verify one login or session happy path", checks)
-        self.assertIn("still need host-run runtime checks", gaps)
+        self.assertIn("[runtime_recipe_pending]", gaps)
+        self.assertIn("[runtime_not_run]", gaps)
 
     def test_verification_recipe_covers_env_and_cross_boundary_runtime(self) -> None:
         summary = BDO_MODULE.build_verification_summary(
@@ -584,13 +681,73 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("Use `--recipe` to add a verification checklist template", rendered)
         self.assertIn("Build or typecheck success is not enough", rendered)
 
+    def test_render_verify_shows_recipe_specific_runtime_evidence_examples(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["auth", "backend"]
+        state["verification_summary"] = {
+            "checks": [],
+            "escalation": [],
+            "stop_conditions": [],
+            "evidence": [],
+            "runtime_evidence": [],
+            "gaps": [],
+        }
+
+        rendered = render_verify(state, recipes=["auth-runtime"])
+
+        self.assertIn("Suggested runtime evidence entries:", rendered)
+        self.assertIn("Login happy path returned 200 and set-cookie", rendered)
+
+    def test_render_verify_shows_structured_gap_labels(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["ui", "backend"]
+        state["verification_summary"] = BDO_MODULE.build_verification_summary(
+            {
+                "size": "M",
+                "risk": "medium",
+                "surfaces": ["ui", "backend"],
+            },
+            evidence=["pnpm test"],
+            runtime_evidence=[],
+            gaps=[],
+        )
+
+        rendered = render_verify(state)
+
+        self.assertIn("Runtime: [runtime_not_run]", rendered)
+        self.assertNotIn("\n    Runtime evidence collected:", rendered)
+
+    def test_format_verification_gaps_orders_static_runtime_and_deploy(self) -> None:
+        gaps = format_verification_gaps(
+            [
+                "[deploy_env_unchecked] Deployment-like startup or health-path verification is still missing; required env or config keys remain unproven at runtime.",
+                "[runtime_not_run] No runtime or end-to-end evidence was recorded yet for the changed app/service flow.",
+                "manual UI flow not run",
+            ]
+        )
+
+        self.assertEqual(gaps[0], "Static: manual UI flow not run")
+        self.assertTrue(gaps[1].startswith("Runtime: [runtime_not_run]"))
+        self.assertTrue(gaps[2].startswith("Deploy: [deploy_env_unchecked]"))
+
     def test_verify_warning_flags_config_runtime_gap(self) -> None:
         state = default_state()
         state["surfaces"] = ["config", "backend", "auth"]
 
         warning = _verify_warning(state, runtime_evidence=[])
 
-        self.assertIn("verified without runtime evidence", warning)
+        self.assertIn("without deployment-like runtime evidence", warning)
+
+    def test_verify_warning_ignores_deploy_like_runtime_evidence(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["config", "backend", "auth"]
+
+        warning = _verify_warning(
+            state,
+            runtime_evidence=["service startup log emitted", "curl -i http://localhost:3000/health returned 200"],
+        )
+
+        self.assertEqual(warning, "")
 
     def test_verify_cli_emits_warning_when_config_runtime_evidence_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -611,7 +768,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             payload = self._run_cli_func_json(BDO_MODULE.cmd_verify, args)
 
         self.assertIn("warning", payload["data"])
-        self.assertIn("verified without runtime evidence", payload["data"]["warning"])
+        self.assertIn("without deployment-like runtime evidence", payload["data"]["warning"])
 
     def test_verify_cli_returns_selected_recipes_without_executing_them(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -647,8 +804,40 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             any("Recipe ui-smoke: render the changed screen" in item for item in payload["data"]["checks"])
         )
         self.assertTrue(
-            any("still need host-run runtime checks" in item for item in payload["data"]["gaps"])
+            any("[runtime_recipe_pending]" in item for item in payload["data"]["gaps"])
         )
+
+    def test_verify_cli_writes_recipe_specific_runtime_evidence_examples_into_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / ".bdo.state.json"
+            contract_path = Path(tmpdir) / "bdo.contract.md"
+            verify_path = Path(tmpdir) / "bdo.verify.md"
+            contract_path.write_text("contract\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "M"
+            state["contract_path"] = str(contract_path)
+            state["contract_stage"] = "lightweight"
+            state["surfaces"] = ["ui", "api"]
+            BDO_MODULE.save_state(state_path, state)
+            parser = build_parser()
+            args = parser.parse_args(
+                [
+                    "--state",
+                    str(state_path),
+                    "verify",
+                    "--output",
+                    str(verify_path),
+                    "--recipe",
+                    "ui-smoke",
+                ]
+            )
+
+            self._run_cli_func_silently(BDO_MODULE.cmd_verify, args)
+            report = verify_path.read_text(encoding="utf-8")
+
+        self.assertIn("Suggested runtime evidence entries:", report)
+        self.assertIn("Rendered the changed screen and confirmed loading -> success transition", report)
+
 
     def test_full_contract_verification_plan_mentions_runtime_flow(self) -> None:
         contract = render_contract(
@@ -660,9 +849,33 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         )
 
         self.assertIn(
-            "start the affected service with deployment-like configuration, confirm required env or config keys are present, and record one startup or health-path check",
+            "start the affected service with deployment-like configuration, confirm required env or config keys are present, and record one startup log, health-path check, or equivalent deploy-shape proof",
             contract,
         )
+
+    def test_lightweight_contract_verification_mentions_expected_runtime_evidence_for_auth(self) -> None:
+        contract = render_contract(
+            objective="Harden login flow",
+            size="M",
+            risk="medium",
+            mode="lightweight",
+            surfaces=["auth", "backend", "config"],
+        )
+
+        self.assertIn("startup or health-path proof", contract)
+        self.assertIn("set-cookie, status code, redirect, or denial response", contract)
+
+    def test_lightweight_contract_verification_mentions_backend_observed_proof_for_full_stack(self) -> None:
+        contract = render_contract(
+            objective="Add archive action",
+            size="M",
+            risk="medium",
+            mode="lightweight",
+            surfaces=["ui", "backend"],
+        )
+
+        self.assertIn("representative end-to-end user flow plus one backend-observed proof", contract)
+        self.assertIn("response status, persisted change, or log line", contract)
 
     def test_full_contract_uses_compact_not_in_scope_markers(self) -> None:
         contract = render_contract(
@@ -677,6 +890,48 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertNotIn("No frontend surface change planned.", contract)
         self.assertNotIn("No responsive behavior change planned.", contract)
         self.assertNotIn("No new accessibility surface is expected.", contract)
+
+    def test_lightweight_contract_defaults_to_core_sections_for_simple_medium_work(self) -> None:
+        contract = render_contract(
+            objective="Tighten backend validation",
+            size="M",
+            risk="medium",
+            mode="lightweight",
+            surfaces=["backend"],
+        )
+
+        self.assertIn("Goal:", contract)
+        self.assertIn("Behavior:", contract)
+        self.assertIn("Acceptance:", contract)
+        self.assertIn("Verification:", contract)
+        self.assertIn("Assumptions:", contract)
+        self.assertNotIn("Constraints (Constitution):", contract)
+        self.assertNotIn("Non-goals:", contract)
+
+    def test_lightweight_contract_keeps_constraints_when_detected_or_runtime_sensitive(self) -> None:
+        contract = render_contract(
+            objective="Wire new env var",
+            size="M",
+            risk="medium",
+            mode="lightweight",
+            surfaces=["config", "backend"],
+            constraints_detected=["Package manager: pnpm@9.0.0"],
+        )
+
+        self.assertIn("Constraints (Constitution):", contract)
+        self.assertIn("Package manager: pnpm@9.0.0", contract)
+
+    def test_lightweight_contract_keeps_non_goals_for_multi_surface_medium_work(self) -> None:
+        contract = render_contract(
+            objective="Add archive action",
+            size="M",
+            risk="medium",
+            mode="lightweight",
+            surfaces=["ui", "backend"],
+        )
+
+        self.assertIn("Non-goals:", contract)
+        self.assertIn("Do not expand scope into unrelated cleanup, redesign, or tech-stack changes.", contract)
 
     def test_impact_scan_separates_code_test_and_doc_text_matches(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1243,6 +1498,34 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "require `contract --mode full`"):
             _ensure_contract_allowed(state, "lightweight")
+
+    def test_sensitive_surface_verify_still_requires_contract_even_if_state_size_is_small(self) -> None:
+        state = default_state()
+        state["size"] = "S"
+        state["surfaces"] = ["auth"]
+
+        with self.assertRaisesRegex(ValueError, "requires a generated contract"):
+            _ensure_contract_exists(state, command="verify")
+
+    def test_payment_surface_handoff_uses_effective_large_gate_even_if_state_size_is_small(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            verification_path = Path(tmpdir) / "bdo.verify.md"
+            verification_path.write_text("ok\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "S"
+            state["surfaces"] = ["payment"]
+            state["verification_path"] = str(verification_path)
+            state["verification_summary"] = {
+                "checks": [],
+                "escalation": [],
+                "stop_conditions": [],
+                "evidence": ["pytest tests/payment_test.py"],
+                "runtime_evidence": [],
+                "gaps": [],
+            }
+
+            with self.assertRaisesRegex(ValueError, "requires completed reviews for: spec, quality"):
+                _ensure_verification_complete(state)
 
     def test_contract_gate_requires_existing_contract_file(self) -> None:
         state = default_state()

@@ -165,12 +165,19 @@ def _render_lightweight_contract(
     acceptance = _acceptance_defaults(surfaces)
     verification = _verification_defaults(surfaces)
     assumptions = _assumption_defaults(size=size, risk=risk, surfaces=surfaces, clarify_assumptions=clarify_assumptions)
-    if constraints:
+    surface_set = set(surfaces)
+    include_constraints = bool(constraints_detected) or bool(surface_set & {"config", "external", "performance"})
+    include_non_goals = risk.lower() in {"high", "critical"} or len(surface_set) >= 2
+    if include_constraints and constraints:
         template = replace_section_placeholder(template, "Constraints (Constitution):", list_block(constraints))
+    else:
+        template = _drop_section(template, "Constraints (Constitution):")
     if behaviors:
         template = replace_section_placeholder(template, "Behavior:", list_block(behaviors))
-    if non_goals:
+    if include_non_goals and non_goals:
         template = replace_section_placeholder(template, "Non-goals:", list_block(non_goals))
+    else:
+        template = _drop_section(template, "Non-goals:")
     if acceptance:
         template = replace_section_placeholder(template, "Acceptance:", checklist_block(acceptance[:2]))
     if verification:
@@ -285,6 +292,21 @@ def _constraints_defaults(surfaces: list[str], *, constraints_detected: list[str
     return items
 
 
+def _drop_section(template: str, heading: str) -> str:
+    lines = template.splitlines()
+    for i, line in enumerate(lines):
+        if line != heading:
+            continue
+        end = i + 1
+        while end < len(lines) and lines[end].lstrip().startswith("-"):
+            end += 1
+        while end < len(lines) and not lines[end].strip():
+            end += 1
+        new_lines = lines[:i] + lines[end:]
+        return "\n".join(new_lines).strip() + "\n"
+    return template
+
+
 def _behavior_defaults(surfaces: list[str]) -> list[str]:
     defaults = [SURFACE_BEHAVIOR[s] for s in surfaces if s in SURFACE_BEHAVIOR]
     if not defaults:
@@ -325,14 +347,20 @@ def _verification_defaults(surfaces: list[str]) -> list[str]:
         items.append("Verify both positive and negative permission paths.")
     if "config" in surface_set and {"backend", "api", "auth"} & surface_set:
         items.append(
-            "Start the service with deployment-like configuration and confirm newly required env or config keys are available."
+            "Start the service with deployment-like configuration, confirm newly required env or config keys are available, and plan to record one startup or health-path proof."
         )
     if "auth" in surfaces:
-        items.append("Start the affected service and record one login/session or denial-path runtime check.")
+        items.append(
+            "Start the affected service and record one login/session or denial-path runtime proof such as set-cookie, status code, redirect, or denial response."
+        )
     elif "ui" in surfaces and ("api" in surfaces or "backend" in surfaces):
-        items.append("Start the touched stack and record one representative end-to-end user flow.")
+        items.append(
+            "Start the touched stack and record one representative end-to-end user flow plus one backend-observed proof such as response status, persisted change, or log line."
+        )
     elif "api" in surfaces or "backend" in surfaces:
-        items.append("Start the affected service and record one representative runtime request.")
+        items.append(
+            "Start the affected service and record one representative runtime request proof such as response status, payload shape, or log/health-path evidence."
+        )
     if "data" in surfaces:
         items.append("Review migration, compatibility, or rollback behavior.")
     if len(items) == 1:
@@ -423,14 +451,23 @@ def _verification_plan_for_full(surfaces: list[str]) -> dict[str, str]:
     if "config" in surface_set and {"backend", "api", "auth"} & surface_set:
         manual = (
             "start the affected service with deployment-like configuration, confirm required env or config keys are present, "
-            "and record one startup or health-path check"
+            "and record one startup log, health-path check, or equivalent deploy-shape proof"
         )
     elif "auth" in surface_set:
-        manual = "start the affected service, execute one login/session or denial path, and record observed behavior"
+        manual = (
+            "start the affected service, execute one login/session or denial path, "
+            "and record observed behavior such as set-cookie, redirect, status code, or denial response"
+        )
     elif "ui" in surface_set and ("api" in surface_set or "backend" in surface_set):
-        manual = "start the touched stack, exercise one representative end-to-end user flow, and confirm visible plus persisted behavior"
+        manual = (
+            "start the touched stack, exercise one representative end-to-end user flow, "
+            "and record visible plus persisted or backend-observed behavior"
+        )
     elif "api" in surface_set or "backend" in surface_set:
-        manual = "start the affected service and run one representative request against the changed boundary"
+        manual = (
+            "start the affected service and run one representative request against the changed boundary, "
+            "recording response shape, status, or log/health-path evidence"
+        )
     elif "ui" in surface_set:
         manual = "run one manual UI smoke flow that covers the changed state transition"
     else:

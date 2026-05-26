@@ -33,13 +33,55 @@ VERIFY_RECIPES = {
         "Recipe deploy-config-check: record one startup, health-path, or deployment-log proof that the target environment shape is sufficient.",
     ],
 }
+RUNTIME_EVIDENCE_EXAMPLES = {
+    "smoke": [
+        'Example runtime evidence: "Opened the changed app flow and completed one representative happy path successfully."',
+    ],
+    "ui-smoke": [
+        'Example runtime evidence: "Rendered the changed screen and confirmed loading -> success transition in the running UI."',
+    ],
+    "api-smoke": [
+        'Example runtime evidence: "curl -i http://localhost:3000/example returned 200 with the expected payload shape."',
+    ],
+    "frontend-backend-smoke": [
+        'Example runtime evidence: "Completed the changed end-to-end flow; UI updated and backend returned 200 with the persisted change visible."',
+    ],
+    "auth-runtime": [
+        'Example runtime evidence: "Login happy path returned 200 and set-cookie; denial path returned 403 with the expected error body."',
+    ],
+    "config-runtime": [
+        'Example runtime evidence: "Service startup log showed required env loaded and /health returned 200 in the deployment-like environment."',
+    ],
+    "env-change-runtime": [
+        'Example runtime evidence: "Started the service with the new env vars populated; startup log and behavior confirmed the runtime consumed them."',
+    ],
+    "deploy-config-check": [
+        'Example runtime evidence: "Compared required env keys against the target environment and verified startup/health succeeded without missing-config errors."',
+    ],
+}
+GAP_CATEGORY_ORDER = {"static": 0, "runtime": 1, "deploy": 2}
+DEPLOY_RUNTIME_KEYWORDS = (
+    "health",
+    "startup",
+    "started",
+    "boot",
+    "booted",
+    "env",
+    "environment",
+    "config",
+    "configuration",
+    "deploy",
+    "deployment",
+    "listening",
+    "ready",
+)
 
 
 def verify_recipe_choices() -> list[str]:
     return sorted(VERIFY_RECIPES)
 
 
-def render_verify(state: dict) -> str:
+def render_verify(state: dict, *, recipes: list[str] | None = None) -> str:
     summary = state.get("verification_summary") or build_verification_summary(state)
     size = state.get("size", "")
     risk = state.get("risk", "")
@@ -50,6 +92,8 @@ def render_verify(state: dict) -> str:
     evidence = summary.get("evidence", [])
     runtime_evidence = summary.get("runtime_evidence", [])
     gaps = summary.get("gaps", [])
+    formatted_gaps = format_verification_gaps(gaps)
+    example_runtime_evidence = runtime_evidence_examples(recipes=recipes or [], surfaces=surfaces)
 
     return f"""# Verification Report
 
@@ -69,7 +113,10 @@ Runtime evidence collected:
 {_as_bullets(runtime_evidence or ["No runtime or end-to-end evidence recorded yet"])}
 
 Coverage gaps:
-{_as_bullets(gaps or ["No explicit gaps recorded; add one if verification is partial"])}
+{_as_bullets(formatted_gaps or ["No explicit gaps recorded; add one if verification is partial"])}
+
+Suggested runtime evidence entries:
+{_as_bullets(example_runtime_evidence or ["No recipe-specific runtime evidence examples suggested."])}
 
 Escalation:
 {_as_bullets(escalation)}
@@ -99,11 +146,12 @@ def build_verification_summary(
     surfaces = state.get("surfaces", [])
     selected_recipes = _normalize_unique(recipes or [])
     runtime_entries = runtime_evidence or []
-    gap_entries = list(gaps or [])
-    if selected_recipes and not runtime_entries:
-        gap_entries.append(
-            "Selected verification recipe(s) still need host-run runtime checks; add `--runtime-evidence` after they actually run."
-        )
+    gap_entries = verification_gap_hints(
+        state,
+        runtime_evidence=runtime_entries,
+        gaps=gaps or [],
+        recipes=selected_recipes,
+    )
     return {
         "checks": _normalize_unique(_checks_for_surfaces(surfaces) + _checks_for_recipes(selected_recipes)),
         "escalation": _escalation_triggers(size=size, risk=risk, surfaces=surfaces),
@@ -112,6 +160,78 @@ def build_verification_summary(
         "runtime_evidence": runtime_entries,
         "gaps": _normalize_unique(gap_entries),
     }
+
+
+def verification_gap_hints(
+    state: dict,
+    *,
+    runtime_evidence: list[str] | None = None,
+    gaps: list[str] | None = None,
+    recipes: list[str] | None = None,
+) -> list[str]:
+    surface_set = set(state.get("surfaces", []))
+    runtime_entries = runtime_evidence or []
+    selected_recipes = recipes or []
+    gap_entries = list(gaps or [])
+    if selected_recipes and not runtime_entries:
+        gap_entries.append(
+            "[runtime_recipe_pending] Selected verification recipe(s) still need host-run runtime checks; add `--runtime-evidence` after they actually run."
+        )
+    if not runtime_entries and ({"ui", "backend"} & surface_set or "api" in surface_set or "auth" in surface_set):
+        gap_entries.append(
+            "[runtime_not_run] No runtime or end-to-end evidence was recorded yet for the changed app/service flow."
+        )
+    if "config" in surface_set and {"backend", "api", "auth"} & surface_set and not has_deploy_like_runtime_evidence(runtime_entries):
+        gap_entries.append(
+            "[deploy_env_unchecked] Deployment-like startup or health-path verification is still missing; required env or config keys remain unproven at runtime."
+        )
+    return _normalize_unique(gap_entries)
+
+
+def has_deploy_like_runtime_evidence(runtime_evidence: list[str] | None) -> bool:
+    for entry in runtime_evidence or []:
+        lowered = entry.lower()
+        if any(keyword in lowered for keyword in DEPLOY_RUNTIME_KEYWORDS):
+            return True
+    return False
+
+
+def runtime_evidence_examples(*, recipes: list[str], surfaces: list[str]) -> list[str]:
+    examples: list[str] = []
+    for recipe in recipes:
+        examples.extend(RUNTIME_EVIDENCE_EXAMPLES.get(recipe, []))
+    surface_set = set(surfaces)
+    if not examples and "auth" in surface_set:
+        examples.append(
+            'Example runtime evidence: "Auth happy path succeeded and denial path returned the expected status/body."'
+        )
+    if not examples and "config" in surface_set and {"backend", "api", "auth"} & surface_set:
+        examples.append(
+            'Example runtime evidence: "Service startup/health proved the required env or config keys were present at runtime."'
+        )
+    if not examples and "ui" in surface_set and ("backend" in surface_set or "api" in surface_set):
+        examples.append(
+            'Example runtime evidence: "Completed one representative end-to-end user flow and confirmed the backend-observed result."'
+        )
+    if not examples and ("backend" in surface_set or "api" in surface_set):
+        examples.append(
+            'Example runtime evidence: "Representative request returned the expected status/payload in the running service."'
+        )
+    return _normalize_unique(examples)
+
+
+def gap_category(gap: str) -> str:
+    if gap.startswith("[deploy_env_unchecked]"):
+        return "deploy"
+    if gap.startswith("[runtime_"):
+        return "runtime"
+    return "static"
+
+
+def format_verification_gaps(gaps: list[str]) -> list[str]:
+    ordered = sorted(gaps, key=lambda gap: (GAP_CATEGORY_ORDER.get(gap_category(gap), 99), gap))
+    labels = {"static": "Static", "runtime": "Runtime", "deploy": "Deploy"}
+    return [f"{labels[gap_category(gap)]}: {gap}" for gap in ordered]
 
 
 def _as_bullets(items: list[str]) -> str:

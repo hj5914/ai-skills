@@ -49,7 +49,7 @@ Size the task before choosing process depth:
 | XL | Multiple services, release coordination, security/payment/migration risk, team handoff | Cross-repo coordination, irreversible actions | Plan first; use references before execution |
 
 When signals conflict, choose the heavier path only for the risky surface. Do not let a large file count alone turn a simple mechanical change into a product workflow.
-If the user explicitly requests a task size such as `XS`, `S`, `M`, `L`, or `XL`, accept it as the working size unless a Hard Gate requires escalation. User input can make the process lighter or heavier by choice, but it cannot waive sensitive-surface gates.
+If the user explicitly requests a task size such as `XS`, `S`, `M`, `L`, or `XL`, accept it as the working size unless a Hard Gate requires escalation. User input can make the process lighter or heavier by choice, but it cannot waive sensitive-surface gates; when a hard gate bumps the effective size, say so explicitly.
 
 ## Hard Gates
 
@@ -78,9 +78,9 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 2. Build a delivery contract before coding.
    - **Constitution Mining**: Extract technical constraints by reading project config files (e.g., `package.json`, `tsconfig.json`, `.eslintrc`). When using the bundled CLI, `mine` can prefill a lightweight set of detected constraints. The primary agent still owns validation and interpretation. **Hard constraint**: Never swap the project's existing database, framework, language, or key library for an alternative without explicit user approval — even if blocked by setup issues.
    - **Clarify Quiz**: Identify 3-5 technical ambiguities or boundary risks before drafting the contract. Present them to the user only when the answers materially affect behavior, safety, permissions, or irreversible actions.
-   - Capture goal, non-goals, user flow, data/API contract, UI states, acceptance criteria, risks, and verification commands.
+   - Capture goal, non-goals, user flow, data/API contract, UI states, acceptance criteria, risks, and verification commands or expected runtime evidence.
    - **Two-Pass Contract (L/XL only)**: For L/XL tasks, the primary agent should split the contract into two passes. **Pass 1 (WHAT)**: Goal, Behavior, Non-goals, Acceptance Criteria — confirm with user before proceeding. **Pass 2 (HOW)**: Data/API, Frontend/Backend contract, Verification plan — written after WHAT is confirmed. This prevents premature technical decisions from polluting requirement understanding.
-   - For M tasks, use the lightweight template in `templates/lightweight-contract-template.md`.
+   - For M tasks, use the lightweight template in `templates/lightweight-contract-template.md`. Default to the core sections (`Goal`, `Behavior`, `Acceptance`, `Verification`, `Assumptions`) and add `Constraints` or `Non-goals` only when they materially help.
    - **No Placeholders**: Contracts and plans must never contain TBD, TODO, "implement later", "add appropriate error handling", "Similar to Task N", or steps that describe what to do without showing how. Every step must have exact file paths and complete code.
    - Keep it concise. Use `references/delivery-contract.md` when the requirement is ambiguous, cross-functional, or L/XL.
 
@@ -117,7 +117,8 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - For `auth/data/payment/migration` work, include configuration presence checks and one key user or caller flow verification, not just build or typecheck.
    - For `config + backend/api/auth` changes, verify the service can start with deployment-like configuration and that newly required env or config keys are actually available at runtime.
    - When dynamic validation runs, record it explicitly as runtime evidence instead of folding it into generic build or test evidence.
-   - If you want structured runtime coverage without turning this skill into an execution engine, use `tools/bdo.py verify --recipe ...` to add checklist guidance only; the host tool still owns actually starting services, sending requests, or running Playwright.
+   - Treat verification gaps explicitly. Prefer canonical gap labels such as `[runtime_not_run]`, `[deploy_env_unchecked]`, and `[runtime_recipe_pending]` so verify and handoff can distinguish static, runtime, and deployment-shape coverage holes and present them in that order.
+   - If you want structured runtime coverage without turning this skill into an execution engine, use `tools/bdo.py verify --recipe ...` to add checklist guidance and example `--runtime-evidence` wording only; the host tool still owns actually starting services, sending requests, or running Playwright.
    - Use `references/verification-gates.md` for verification depth and stop conditions.
    - Self-review the final diff for scope drift, existing-pattern fit, boundary cases, and unrelated changes before reporting completion.
 

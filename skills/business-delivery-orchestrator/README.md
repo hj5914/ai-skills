@@ -61,7 +61,7 @@ python3 tools/bdo.py classify --size L --risk high --surface ui --surface backen
 
 说明：
 - 用户指定的 `XS/S/M/L/XL` 会作为当前工作分级。
-- 如果命中 `auth/data/payment/migration` 等 hard gate，流程仍会只向上纠偏，不能用用户指定分级绕过门禁。
+- 如果命中 `auth/data/payment/migration` 等 hard gate，流程仍会只向上纠偏，不能用用户指定分级绕过门禁；`classify` 会回显 `requested_size`、生效后的 `size` 和 hard-gate 原因。
 
 常用命令：
 
@@ -97,6 +97,7 @@ examples/
 
 - 默认单 agent 执行，子代理只在边界清晰且收益明确时启用。
 - `XS/S` 工作默认先本地 `grep/read + focused check`，不要为了分类本身先跑完整 BDO/CLI 流程；只有出现 hard trigger、真实歧义或跨边界风险时再升级。
+- `M` 级 lightweight contract 默认只保留 `Goal / Behavior / Acceptance / Verification / Assumptions`；`Constraints` 和 `Non-goals` 仅在确实有帮助时再展开。
 - 用户可以主动指定当前任务分级；默认尊重该分级，但 `auth/data/payment/migration` 等 hard gate 仍然只能向上纠偏。
 - 只有在准备做委派决策时才需要读取 `references/delegation-matrix.md`；single-agent 和 fast-path 不需要为此增加流程负担。
 - `auth`、`data`、`payment`、`migration` 这类敏感 surface 在 CLI 中都会强制要求 full contract，且 handoff 前会校验 contract / verify 产物文件仍然存在。
@@ -105,7 +106,9 @@ examples/
 - `classify` 和 contract 命令会在大任务或高风险任务上给出 `quiz` 的软提示。
 - `resume` 除了给出下一步命令，还会指出新会话优先应该查看哪些现有交付产物，并生成一条简短恢复摘要。
 - `verify --runtime-evidence` 用于单独记录启动服务、发请求、手动走流程等动态验证证据。
-- `verify --recipe smoke|ui-smoke|api-smoke|frontend-backend-smoke|auth-runtime|config-runtime|env-change-runtime|deploy-config-check` 只补充验证清单模板，不会自动启动项目、发请求或运行 Playwright。
+- `verify --recipe smoke|ui-smoke|api-smoke|frontend-backend-smoke|auth-runtime|config-runtime|env-change-runtime|deploy-config-check` 只补充验证清单模板和示例 `--runtime-evidence` 口径，不会自动启动项目、发请求或运行 Playwright。
+- `verify` / `handoff` 会尽量把验证缺口结构化为 `[runtime_not_run]`、`[deploy_env_unchecked]`、`[runtime_recipe_pending]` 这类标签，并按 `Static / Runtime / Deploy` 顺序展示，便于区分静态验证、运行验证和部署态检查还缺什么。
+- `contract` 的 Verification 默认项现在会尽量写出期望保留的运行证据类型，例如 `startup/health`、`set-cookie`、`status code`、`persisted change`、`log line`，减少 verify 阶段临时补想证据口径。
 - `delta --follow-up` 可把实现中发现但不应并入当前范围的问题显式带到 handoff。
 - `memory` 现在会按 lesson/rule 自动去重，避免同一条经验反复追加到 `MEMORY.md`。
 - 模板文件是推荐默认值，不是强制格式；宿主规范优先。
