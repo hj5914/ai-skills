@@ -33,8 +33,8 @@ def build_resume_summary(state: dict) -> dict:
         blockers.append(f"Missing handoff artifact: {handoff_path}")
     if phase in {"verify", "deliver"} and not contract_path and size in {"M", "L", "XL"}:
         blockers.append("Phase/state mismatch: verification or delivery is recorded without a contract.")
-    if phase == "deliver" and not handoff_path:
-        blockers.append("Phase/state mismatch: delivery is recorded without a handoff artifact.")
+    if phase == "deliver" and not handoff_path and size in {"L", "XL"}:
+        blockers.append("Phase/state mismatch: L/XL delivery is recorded without a handoff artifact.")
     if size in {"L", "XL"} and contract_stage == "what":
         blockers.append("L/XL work is paused at WHAT; generate HOW or full contract before verification.")
     if size in {"L", "XL"} and verification_exists and {"spec", "quality"} - set(completed_review_kinds):
@@ -79,12 +79,15 @@ def build_resume_summary(state: dict) -> dict:
     elif blocked_recovery:
         next_step = blocked_recovery["next_step"]
         suggested_command = blocked_recovery["suggested_command"]
-    elif phase == "deliver" and not handoff_path:
+    elif phase == "deliver" and not handoff_path and size in {"L", "XL"}:
         next_step = "Generate the missing handoff artifact before treating delivery as complete."
         suggested_command = "handoff"
-    elif not handoff_path:
+    elif not handoff_path and size in {"L", "XL"}:
         next_step = "Generate the handoff artifact to complete delivery."
         suggested_command = "handoff"
+    elif not handoff_path:
+        next_step = "Handoff artifact is optional for this size; continue with a concise evidence-oriented final report unless the workflow needs a durable artifact."
+        suggested_command = ""
     elif handoff_path and not handoff_exists:
         next_step = "Regenerate the missing handoff artifact."
         suggested_command = "handoff"

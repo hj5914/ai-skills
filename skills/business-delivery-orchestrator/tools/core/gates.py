@@ -51,7 +51,7 @@ def ensure_phase_transition_allowed(state: dict, phase: str) -> None:
             raise ValueError(f"phase {phase} requires an existing contract file: {contract_path}")
         if size in {"L", "XL"} and contract_stage == "what":
             raise ValueError(f"phase {phase} requires a HOW or full contract for L/XL tasks")
-    if phase == "deliver":
+    if phase == "deliver" and size in {"L", "XL"}:
         if not verification_path:
             raise ValueError("phase deliver requires a verification report")
         if not Path(verification_path).exists():

@@ -47,8 +47,8 @@ Use this file to choose verification depth, decide when to escalate review rigor
 5. Adversarial Review (Two-Stage for L/XL, self-review for M):
    - **Stage 1 — Spec Compliance**: Verify the implementation matches the contract — nothing missing, nothing extra. Prefer an independent, read-only Reviewer subagent for L/XL tasks when the host environment supports it.
    - **Stage 2 — Code Quality**: Inspect for correctness, performance, security, and maintainability. Prefer a separate Reviewer subagent (not the same one from Stage 1) when available.
-   - Identify 3 potential failure modes (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
-   - Document how they are addressed or why they are acceptable risks.
+   - Inspect concrete failure-mode categories relevant to the change, such as concurrency, data loss, UI lag, security, performance, rollback, and compatibility.
+   - Document material findings with evidence and how they are addressed or why they are acceptable risks. If no material issue is found, name the inspected categories and evidence instead of inventing filler risks.
    - For M tasks, combine both stages into a single self-review pass.
    - Prefer `templates/reviewer-spec-prompt-template.md` for Stage 1 and `templates/reviewer-quality-prompt-template.md` for Stage 2 so the two reviews do not collapse into one generic pass.
 
@@ -61,7 +61,7 @@ Use this file to choose verification depth, decide when to escalate review rigor
 Before reporting completion, check:
 - The diff matches the contract or documented delta.
 - No unrelated files or generated churn slipped in.
-- **Adversarial Review**: 3 failure modes identified and addressed (L/XL), via two-stage review: Spec Compliance then Code Quality.
+- **Adversarial Review**: relevant failure-mode categories inspected and material findings addressed (L/XL), via two-stage review: Spec Compliance then Code Quality.
 - Existing patterns, naming, and error handling were followed.
 - Boundary cases are covered: empty, invalid, unauthorized, loading, failure, and rollback where relevant.
 - Tests or manual checks exercise the changed behavior, not just implementation details.

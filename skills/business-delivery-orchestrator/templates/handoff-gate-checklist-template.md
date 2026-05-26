@@ -9,8 +9,8 @@ Use this checklist before final delivery for `P0-P2` implementation work or any 
   - Screenshot, log output, test report, or equivalent proof included
 - [ ] Residual risk stated
   - Example: "Not tested with production-like volume"
-- [ ] Lessons learned captured
-  - 1-2 entries prepared for `MEMORY.md`
+- [ ] Lessons learned captured when reusable
+  - `MEMORY.md` entry prepared only for reusable project knowledge, recurring failure modes, or durable guardrails
 - [ ] Cleanup complete
   - No debug logs, temporary files, stray `TODO`s, or unmerged scratch worktrees
 ```

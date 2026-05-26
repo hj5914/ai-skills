@@ -18,7 +18,7 @@ Follow-up:
 Risks:
 -
 
-Lessons Learned (Update MEMORY.md):
+Lessons Learned (optional MEMORY.md):
 -
 -
 
@@ -31,4 +31,4 @@ Next:
 - `Verified` should name tests, commands, or smoke checks that actually ran.
 - `Not verified` should be explicit whenever tooling, credentials, or time-boxing limited coverage.
 - `Follow-up` should capture out-of-scope findings, debt, or separate fixes discovered during implementation.
-- `Lessons Learned` should capture reusable knowledge, not a changelog.
+- `Lessons Learned` should capture reusable project knowledge, recurring failure modes, or durable guardrails, not a changelog. Omit it for routine deliveries.

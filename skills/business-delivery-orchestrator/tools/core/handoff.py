@@ -59,7 +59,7 @@ def render_handoff(state: dict) -> str:
         if lesson:
             lessons.append(lesson)
     if not lessons:
-        lessons = ["Capture one reusable lesson in MEMORY.md."]
+        lessons = ["No reusable MEMORY.md lesson captured for this delivery."]
 
     risks = [f"size={state.get('size', '')}", f"risk={state.get('risk', '')}"]
     next_steps = escalation[:2] if escalation else ["Review residual risks and close the task"]
@@ -95,7 +95,7 @@ def render_handoff(state: dict) -> str:
     not_verified = format_verification_gaps(derived_gaps[:4]) if derived_gaps else ["No explicit gaps recorded"]
     template = replace_section_placeholder(template, "Not verified:", list_block(not_verified))
     template = replace_section_placeholder(template, "Follow-up:", list_block(follow_ups))
-    template = replace_section_placeholder(template, "Lessons Learned (Update MEMORY.md):", list_block(lessons))
+    template = replace_section_placeholder(template, "Lessons Learned (optional MEMORY.md):", list_block(lessons))
     template = replace_section_placeholder(template, "Risks:", list_block(risks))
     if next_steps:
         template = replace_section_placeholder(template, "Next:", list_block(next_steps))

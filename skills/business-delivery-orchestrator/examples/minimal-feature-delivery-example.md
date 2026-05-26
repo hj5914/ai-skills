@@ -109,10 +109,10 @@ Verified:
 - Backend service test covering reject-active-task and archive-success cases
 - Manual smoke: selected completed tasks archived, toast shown, list refreshed
 
-Potential failure modes reviewed:
-- Mixed-status selection bypasses UI guard and reaches backend
-- Archived tasks remain visible because list cache is not invalidated
-- Double-submit sends duplicate archive requests
+Failure-mode categories inspected:
+- Validation: mixed-status selection bypasses UI guard and reaches backend
+- UI state: archived tasks remain visible because list cache is not invalidated
+- Concurrency: double-submit sends duplicate archive requests
 ```
 
 ## Deliver
@@ -134,7 +134,7 @@ Not verified:
 Risks:
 - If another screen mutates task status concurrently, stale selection could cause a validation error until refresh
 
-Lessons Learned (Update MEMORY.md):
+Lessons Learned (optional MEMORY.md):
 - The task list relies on explicit cache invalidation after bulk mutations
 - Bulk action buttons should derive enabled state from selected row data, not only row count
 

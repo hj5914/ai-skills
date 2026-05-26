@@ -58,7 +58,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 | Gate | Trigger | Requirement |
 |---|---|---|
 | Auth/Data/Payment/Migration | Any change touching these surfaces | Full contract, no fast path |
-| Implementation start | M+ task without a contract | Contract written and confirmed |
+| Implementation start | M+ task without a contract | Contract written; explicit confirmation only when behavior, safety, permissions, data, irreversible risk, or acceptance boundaries are ambiguous |
 | Subagent dispatch | Delegation without a prompt contract | Prompt contract filled per Subagent Prompt Contract section |
 | Delivery | L/XL task without adversarial review | Adversarial review completed (Step 6) |
 | Tech stack change | Proposal to swap DB/framework/library | Explicit user confirmation keyword (CONFIRM_TECH) |
@@ -81,7 +81,8 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - Capture goal, non-goals, user flow, data/API contract, UI states, acceptance criteria, risks, and verification commands or expected runtime evidence.
    - **Two-Pass Contract (L/XL only)**: For L/XL tasks, the primary agent should split the contract into two passes. **Pass 1 (WHAT)**: Goal, Behavior, Non-goals, Acceptance Criteria — confirm with user before proceeding. **Pass 2 (HOW)**: Data/API, Frontend/Backend contract, Verification plan — written after WHAT is confirmed. This prevents premature technical decisions from polluting requirement understanding.
    - For M tasks, use the lightweight template in `templates/lightweight-contract-template.md`. Default to the core sections (`Goal`, `Behavior`, `Acceptance`, `Verification`, `Assumptions`) and add `Constraints` or `Non-goals` only when they materially help.
-   - **No Placeholders**: Contracts and plans must never contain TBD, TODO, "implement later", "add appropriate error handling", "Similar to Task N", or steps that describe what to do without showing how. Every step must have exact file paths and complete code.
+   - For clear M tasks, write the lightweight contract, state assumptions, and continue without waiting when the user already gave enough direction and no critical ambiguity exists. Stop for confirmation when the contract would otherwise decide user-visible behavior, safety, permissions, data handling, irreversible changes, or acceptance boundaries.
+   - **Bounded Unknowns, No Vague Placeholders**: Contracts and plans must never contain TBD, TODO, "implement later", "add appropriate error handling", "Similar to Task N", or steps that describe what to do without a bounded execution path. Name exact file paths when they are known. When paths or implementation details are not yet knowable, add a bounded discovery step with the files/commands to inspect, the decision point, and the stop condition. Do not put complete code in the plan unless the exact code is already known and useful for review.
    - Keep it concise. Use `references/delivery-contract.md` when the requirement is ambiguous, cross-functional, or L/XL.
 
 3. Decide whether to delegate.
@@ -108,10 +109,10 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - **Adversarial Review (Two-Stage for L/XL)**:
      1. **Spec Compliance Review**: Verify the implementation matches the contract — nothing missing, nothing extra. Prefer an independent read-only Reviewer subagent for L/XL tasks when the host environment supports it.
      2. **Code Quality Review**: Inspect for correctness, performance, security, and maintainability. Prefer a separate Reviewer subagent (not the same one from Stage 1) when available.
-     3. Identify 3 potential failure modes (concurrency, data loss, UI lag). If no flaws are found, the review is incomplete.
+     3. Inspect concrete failure-mode categories relevant to the change, such as concurrency, data loss, UI lag, security, performance, rollback, and compatibility. Report material findings with evidence; if no material issue is found, name the categories inspected and the evidence instead of inventing filler risks.
      For M tasks, combine both stages into a single self-review pass.
    - For L/XL tasks that require adversarial review, use at least one independent read-only Reviewer subagent when the environment supports subagents. If subagents are unavailable, proceed with role-based self-review but explicitly report that review independence is limited.
-   - For M+ tasks, run `tools/bdo.py verify` before reporting verification complete.
+   - For L/XL tasks, run `tools/bdo.py verify` before reporting verification complete. For M tasks, run focused verification and record the evidence in the final report; use `tools/bdo.py verify` only when a structured artifact is useful or the task has sensitive surfaces.
    - **Cross-Phase Consistency Check (L/XL)**: Before running tests, verify Contract → Plan → Implementation alignment.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
    - For `auth/data/payment/migration` work, include configuration presence checks and one key user or caller flow verification, not just build or typecheck.
@@ -124,8 +125,8 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 
 7. Deliver.
    - Report what changed, what was verified, known residual risks, and any follow-up that is truly useful.
-   - **Knowledge Base Update**: After a successful delivery, append 1-2 reusable lessons to `MEMORY.md`. Skip entries whose lesson/rule already exists unless the new entry materially changes the guardrail.
-   - For M+ tasks, run `tools/bdo.py handoff` before reporting delivery complete.
+   - **Knowledge Base Update**: After a successful delivery, append to `MEMORY.md` only when the task revealed reusable project knowledge, a recurring failure mode, or a durable guardrail. Skip routine changelog entries and skip entries whose lesson/rule already exists unless the new entry materially changes the guardrail.
+   - For L/XL tasks, run `tools/bdo.py handoff` before reporting delivery complete. For M tasks, use `tools/bdo.py handoff` when a durable handoff artifact is useful; otherwise give a concise evidence-oriented final report.
    - Record scope-external findings or debt as explicit follow-up items instead of silently absorbing them into the current delivery.
    - If blocked, report the blocker, evidence, and the next concrete action.
    - Use `templates/handoff-template.md` unless the environment already has a stricter handoff format.
@@ -223,7 +224,7 @@ Summarize subagent results before integrating them. Do not paste full long outpu
 
 ## Anti-Overhead Controls
 
-- **Confirmation Protocol**: On critical gates (Contract approval, Plan review, Release), prefer a 3-line summary and a specific confirmation keyword (e.g., `CONFIRM_PLAN`) when the host environment and user workflow support explicit approvals.
+- **Confirmation Protocol**: On critical gates (Contract approval, Plan review, Release), prefer a 3-line summary and a specific confirmation keyword (e.g., `CONFIRM_PLAN`) when the host environment and user workflow support explicit approvals. For M tasks, require explicit confirmation only when behavior, safety, permissions, data, irreversible risk, or acceptance boundaries remain ambiguous after reasonable assumptions.
 - Cap the active delivery contract at roughly 20 bullets unless the user asks for a detailed plan.
 - Ask at most three clarifying questions before making conservative assumptions on XS/S/M work; for L/XL, ask only the questions that materially change behavior, safety, or irreversible actions.
 - Do not read reference files unless the current phase needs them.
@@ -248,7 +249,7 @@ If ECC tools or agents are installed, use them as implementation mechanisms, but
 - Read `references/delegation-matrix.md` when deciding whether to use subagents, external agents, worktrees, or role-based self-review.
 - Read `references/delivery-contract.md` when requirements need a shared contract before implementation.
 - Read `references/verification-gates.md` when selecting verification depth, escalation triggers, or stop conditions.
-- Reuse `templates/lightweight-contract-template.md`, `templates/full-delivery-contract-template.md`, `templates/reviewer-spec-prompt-template.md`, `templates/reviewer-quality-prompt-template.md`, `templates/handoff-gate-checklist-template.md`, `templates/handoff-template.md`, and `templates/memory-entry-template.md` instead of rewriting these artifacts from scratch.
+- Reuse `templates/lightweight-contract-template.md`, `templates/full-delivery-contract-template.md`, `templates/reviewer-spec-prompt-template.md`, `templates/reviewer-quality-prompt-template.md`, `templates/handoff-gate-checklist-template.md`, `templates/handoff-template.md`, and `templates/memory-entry-template.md` instead of rewriting these artifacts from scratch when the artifact is warranted by task size or risk.
 - Read `examples/minimal-feature-delivery-example.md` when a user or teammate needs a concise end-to-end example of how this skill should be applied.
 
 ## Bundled CLI
@@ -256,7 +257,7 @@ If ECC tools or agents are installed, use them as implementation mechanisms, but
 This skill includes a local helper at `tools/bdo.py`. Use it when structured artifacts or machine-readable output are useful; skip it for trivial fast-path work.
 
 - Core commands: `init`, `classify`, `phase`, `quiz`, `scan`, `mine`, `contract`, `contract-what`, `contract-how`, `review`, `verify`, `handoff`, `memory`, `delta`, `status`, `resume`
-- Enforced checks: `auth/data/payment/migration` work requires a full contract; manual `phase` transitions cannot bypass required contract / verify artifacts; M/L/XL verification requires a contract; L/XL work cannot stop at `contract-what` and must reach `contract-how` or `contract --mode full`; handoff requires contract and verification files that still exist; L/XL handoff also requires completed `spec` and `quality` reviews
+- Enforced checks: `auth/data/payment/migration` work requires a full contract; manual `phase` transitions cannot bypass required contract / verify artifacts when those artifacts are required; CLI verification requires a contract for M/L/XL tasks; L/XL work cannot stop at `contract-what` and must reach `contract-how` or `contract --mode full`; L/XL handoff requires contract and verification files that still exist plus completed `spec` and `quality` reviews. For M tasks, CLI verify/handoff artifacts are optional unless the risk or user workflow requires them.
 - Soft reminders: `classify` and contract commands suggest `quiz` when the task is large or risky and no clarify quiz has been recorded yet
 - `resume` summarizes missing artifacts, phase/state mismatches, minimal recovery actions for blocked reviews, which existing artifacts a new session should inspect first, and a short recovery summary you can reuse when resuming work
 - `verify --recipe smoke|ui-smoke|api-smoke|frontend-backend-smoke|auth-runtime|config-runtime|env-change-runtime|deploy-config-check` adds verification checklist templates only; it does not start services, send requests, or run browsers for you

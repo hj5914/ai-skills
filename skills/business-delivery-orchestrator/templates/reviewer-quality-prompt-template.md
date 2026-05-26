@@ -28,10 +28,8 @@ Files inspected:
 Findings:
 - [severity] file:line - issue and why it matters
 
-Top 3 failure modes:
-- 
-- 
-- 
+Failure-mode categories inspected:
+- [category] evidence and finding, or evidence of no material issue
 
 Contract assumptions:
 - 
@@ -48,5 +46,5 @@ Verdict:
 
 ## Notes
 
-- If no material defects are found, say so explicitly and still provide three plausible failure modes.
+- If no material defects are found, say so explicitly and list the categories inspected with the evidence that supported no finding.
 - Prefer findings with direct behavioral impact over speculative cleanup advice.
