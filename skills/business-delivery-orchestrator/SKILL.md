@@ -49,6 +49,7 @@ Size the task before choosing process depth:
 | XL | Multiple services, release coordination, security/payment/migration risk, team handoff | Cross-repo coordination, irreversible actions | Plan first; use references before execution |
 
 When signals conflict, choose the heavier path only for the risky surface. Do not let a large file count alone turn a simple mechanical change into a product workflow.
+If the user explicitly requests a task size such as `XS`, `S`, `M`, `L`, or `XL`, accept it as the working size unless a Hard Gate requires escalation. User input can make the process lighter or heavier by choice, but it cannot waive sensitive-surface gates.
 
 ## Hard Gates
 
@@ -67,6 +68,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
 1. Classify the request.
    - **Impact Scan**: Before sizing, perform a quick read-only scan of likely dependents. When using the bundled CLI, `scan` checks direct path matches first, then import/use references, then separates code/test/doc text fallback matches and applies a small sensitive-surface bump to inform sizing. Treat the result as a heuristic, not a complete dependency graph.
    - Identify user goal, affected surfaces, expected deliverable, deadline pressure, and ambiguity.
+   - If the user already specified a size, keep it unless a Hard Gate forces escalation; if you override it, say exactly why.
    - Before committing to one M/L/XL workflow, check whether the request is actually several low-coupling fixes that should be split into separate deliveries.
    - For M+ tasks, report the classified size, risk, and rationale to the user before proceeding; if the user disagrees, reclassify.
    - If the request is only analysis or brainstorming, stop before implementation and return the analysis.

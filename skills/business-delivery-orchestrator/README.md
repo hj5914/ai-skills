@@ -44,6 +44,25 @@ python3 tools/bdo.py init --objective "Demo delivery"
 python3 tools/bdo.py status
 ```
 
+用户可以主动指定任务分级：
+
+```text
+按 S 级处理这个任务
+按 L 级走完整流程
+这个需求先按 fast path 做
+```
+
+如果用 CLI 记录当前分级：
+
+```bash
+python3 tools/bdo.py classify --size S --risk low
+python3 tools/bdo.py classify --size L --risk high --surface ui --surface backend
+```
+
+说明：
+- 用户指定的 `XS/S/M/L/XL` 会作为当前工作分级。
+- 如果命中 `auth/data/payment/migration` 等 hard gate，流程仍会只向上纠偏，不能用用户指定分级绕过门禁。
+
 常用命令：
 
 ```text
@@ -78,6 +97,7 @@ examples/
 
 - 默认单 agent 执行，子代理只在边界清晰且收益明确时启用。
 - `XS/S` 工作默认先本地 `grep/read + focused check`，不要为了分类本身先跑完整 BDO/CLI 流程；只有出现 hard trigger、真实歧义或跨边界风险时再升级。
+- 用户可以主动指定当前任务分级；默认尊重该分级，但 `auth/data/payment/migration` 等 hard gate 仍然只能向上纠偏。
 - 只有在准备做委派决策时才需要读取 `references/delegation-matrix.md`；single-agent 和 fast-path 不需要为此增加流程负担。
 - `auth`、`data`、`payment`、`migration` 这类敏感 surface 在 CLI 中都会强制要求 full contract，且 handoff 前会校验 contract / verify 产物文件仍然存在。
 - `scan` 是启发式，不是完整依赖图；它会区分 direct/import/code/test/doc 命中，并对敏感关键词做小幅 size 上调。
