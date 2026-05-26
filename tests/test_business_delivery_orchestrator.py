@@ -53,6 +53,11 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             func(args)
         return json.loads(buf.getvalue())
 
+    def _run_cli_argv_json(self, argv: list[str]) -> dict:
+        parser = build_parser()
+        args = parser.parse_args(argv)
+        return self._run_cli_func_json(args.func, args)
+
     def test_normalize_state_backfills_new_fields(self) -> None:
         legacy = {
             "objective": "Demo",
@@ -151,6 +156,137 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             updated = load_state(state_path)
 
         self.assertEqual(updated["surfaces"], [])
+
+    def test_cli_e2e_flow_for_large_task(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            state_path = root / ".bdo.state.json"
+            contract_path = root / "bdo.contract.md"
+            verify_path = root / "bdo.verify.md"
+            handoff_path = root / "bdo.handoff.md"
+
+            init_payload = self._run_cli_argv_json(
+                ["--state", str(state_path), "--json", "init", "--objective", "Harden login flow"]
+            )
+            classify_payload = self._run_cli_argv_json(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "classify",
+                    "--size",
+                    "L",
+                    "--risk",
+                    "high",
+                    "--surface",
+                    "auth",
+                    "--surface",
+                    "backend",
+                    "--surface",
+                    "ui",
+                    "--surface",
+                    "config",
+                ]
+            )
+            contract_payload = self._run_cli_argv_json(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "contract",
+                    "--mode",
+                    "full",
+                    "--output",
+                    str(contract_path),
+                ]
+            )
+            verify_payload = self._run_cli_argv_json(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "verify",
+                    "--output",
+                    str(verify_path),
+                    "--evidence",
+                    "pnpm build",
+                    "--runtime-evidence",
+                    "curl -i http://localhost:3000/health returned 200",
+                ]
+            )
+            spec_review_payload = self._run_cli_argv_json(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "review",
+                    "--kind",
+                    "spec",
+                    "--status",
+                    "DONE",
+                    "--focus",
+                    "contract alignment",
+                    "--evidence",
+                    "reviewed contract and diff",
+                ]
+            )
+            quality_review_payload = self._run_cli_argv_json(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "review",
+                    "--kind",
+                    "quality",
+                    "--status",
+                    "DONE_WITH_CONCERNS",
+                    "--focus",
+                    "residual risks",
+                    "--finding",
+                    "Monitor session cookie rollout in staging",
+                    "--evidence",
+                    "reviewed final diff",
+                ]
+            )
+            handoff_payload = self._run_cli_argv_json(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "handoff",
+                    "--output",
+                    str(handoff_path),
+                ]
+            )
+            status_payload = self._run_cli_argv_json(["--state", str(state_path), "--json", "status"])
+
+            self.assertEqual(init_payload["data"]["phase"], "init")
+            self.assertEqual(classify_payload["data"]["size"], "L")
+            self.assertEqual(classify_payload["data"]["surfaces"], ["auth", "backend", "ui", "config"])
+            self.assertEqual(contract_payload["data"]["mode"], "full")
+            self.assertIn("pnpm build", verify_payload["data"]["evidence"])
+            self.assertIn(
+                "curl -i http://localhost:3000/health returned 200",
+                verify_payload["data"]["runtime_evidence"],
+            )
+            self.assertEqual(spec_review_payload["data"]["status"], "DONE")
+            self.assertEqual(quality_review_payload["data"]["status"], "DONE_WITH_CONCERNS")
+            self.assertTrue(contract_path.exists())
+            self.assertTrue(verify_path.exists())
+            self.assertTrue(handoff_path.exists())
+
+            state = status_payload["data"]
+            self.assertEqual(state["phase"], "deliver")
+            self.assertEqual(state["contract_stage"], "full")
+            self.assertEqual(state["contract_path"], str(contract_path))
+            self.assertEqual(state["verification_path"], str(verify_path))
+            self.assertEqual(state["handoff_path"], str(handoff_path))
+            self.assertEqual(
+                state["verification_summary"]["runtime_evidence"],
+                ["curl -i http://localhost:3000/health returned 200"],
+            )
+            self.assertEqual([review["kind"] for review in state["reviews"]], ["spec", "quality"])
+            self.assertEqual(handoff_payload["data"]["verification_runtime_evidence"], state["verification_summary"]["runtime_evidence"])
 
     def test_replace_section_placeholder_replaces_entire_block(self) -> None:
         template = "Changed:\n- old one\n- old two\n\nNext:\n- keep\n"
