@@ -417,6 +417,29 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("Shared behavior is intentionally deferred to the HOW pass.", what)
         self.assertIn("Delivery Contract - HOW", how)
         self.assertIn("Script test: pytest", how)
+        self.assertIn("Verification plan:", how)
+        self.assertIn("- Unit: focus on direct logic changes and boundary cases", how)
+        self.assertIn("- E2E/manual:", how)
+
+    def test_contract_assumptions_are_deduplicated(self) -> None:
+        contract = render_contract(
+            objective="Add bulk archive",
+            size="L",
+            risk="medium",
+            mode="full",
+            surfaces=["ui", "backend"],
+            clarify_assumptions=[
+                "size=L",
+                "risk=medium",
+                "surfaces=ui, backend",
+                "Resolved: reject mixed-status selections",
+            ],
+        )
+
+        self.assertEqual(contract.count("- size=L"), 1)
+        self.assertEqual(contract.count("- risk=medium"), 1)
+        self.assertEqual(contract.count("- surfaces=ui, backend"), 1)
+        self.assertIn("Resolved: reject mixed-status selections", contract)
 
     def test_contract_what_updates_state_for_resume(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

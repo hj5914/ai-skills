@@ -106,6 +106,7 @@ def _render_how_contract(
     clarify_assumptions: list[str] | None = None,
 ) -> str:
     template = load_template_code_block("full-delivery-contract-template.md")
+    verification = _verification_plan_for_full(surfaces)
     template = fill_once(template, "## Delivery Contract", "## Delivery Contract - HOW")
     template = fill_once(template, "Goal:\n- ", f"Goal:\n- {objective or ''}")
     template = replace_section_placeholder(template, "Non-goals:", list_block(_non_goal_defaults(surfaces)))
@@ -132,6 +133,10 @@ def _render_how_contract(
     template = fill_once(template, "- Persistence:", f"- Persistence: {'Preserve compatibility of persisted data and rollback reasoning.' if 'data' in surfaces else 'No persistence schema change planned.'}")
     template = fill_once(template, "- Side effects:", f"- Side effects: {'Make external calls and notifications explicit in the implementation boundary.' if 'external' in surfaces else 'No new external side effects planned.'}")
     template = fill_once(template, "- Observability:", f"- Observability: {_observability_defaults(surfaces)}")
+    template = fill_once(template, "- Unit:", f"- Unit: {verification['unit']}")
+    template = fill_once(template, "- Integration:", f"- Integration: {verification['integration']}")
+    template = fill_once(template, "- E2E/manual:", f"- E2E/manual: {verification['manual']}")
+    template = fill_once(template, "- Build/lint/typecheck:", f"- Build/lint/typecheck: {verification['build']}")
     template = replace_section_placeholder(template, "Acceptance criteria:", checklist_block(_acceptance_defaults(surfaces)[:3]))
     template = replace_section_placeholder(
         template,
@@ -446,4 +451,11 @@ def _assumption_defaults(
     items = [f"size={size}", f"risk={risk}", f"surfaces={', '.join(surfaces) if surfaces else 'none'}"]
     if clarify_assumptions:
         items.extend(clarify_assumptions[:4])
-    return items
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        deduped.append(item)
+    return deduped

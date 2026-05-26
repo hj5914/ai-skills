@@ -268,14 +268,6 @@ def _text_match_bucket(path: Path) -> str:
     return "code"
 
 
-def _recommended_size_from_count(count: int) -> str:
-    if count <= 1:
-        return "S"
-    if count <= 5:
-        return "M"
-    if count <= 12:
-        return "L"
-    return "XL"
 def _should_skip(path: Path) -> bool:
     parts = set(path.parts)
     return any(part in parts for part in {".git", "node_modules", ".next", "dist", "build", "__pycache__"})
