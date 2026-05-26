@@ -267,9 +267,11 @@ def cmd_verify(args: argparse.Namespace) -> int:
     state_path = args.state or Path.cwd() / STATE_FILE_NAME
     state = load_state(state_path)
     _ensure_contract_exists(state, command="verify")
+    runtime_evidence = args.runtime_evidence or []
     state["verification_summary"] = build_verification_summary(
         state,
         evidence=args.evidence or [],
+        runtime_evidence=runtime_evidence,
         gaps=args.gap or [],
     )
     set_phase(state, "verify")
@@ -284,7 +286,10 @@ def cmd_verify(args: argparse.Namespace) -> int:
         command="verify",
         state_path=state_path,
         output_path=report_path,
-        data=state["verification_summary"],
+        data={
+            **state["verification_summary"],
+            "warning": _verify_warning(state, runtime_evidence=runtime_evidence),
+        },
     )
 
 
@@ -309,6 +314,7 @@ def cmd_handoff(args: argparse.Namespace) -> int:
             "latest_delta": state.get("delta", [])[-1] if state.get("delta") else None,
             "latest_delta_summary": state.get("delta", [])[-1].get("summary", "") if state.get("delta") else "",
             "verification_evidence": state.get("verification_summary", {}).get("evidence", []),
+            "verification_runtime_evidence": state.get("verification_summary", {}).get("runtime_evidence", []),
             "verification_gaps": state.get("verification_summary", {}).get("gaps", []),
         },
     )
@@ -476,6 +482,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("verify")
     p.add_argument("--output", type=Path)
     p.add_argument("--evidence", action="append", help="Actual checks or commands that ran")
+    p.add_argument(
+        "--runtime-evidence",
+        action="append",
+        help="Actual runtime or end-to-end checks that ran, such as service startup, requests, or UI flows",
+    )
     p.add_argument("--gap", action="append", help="Known coverage gaps or skipped checks")
     p.set_defaults(func=cmd_verify)
 
@@ -807,6 +818,16 @@ def _clarify_warning(state: dict) -> str:
         surfaces=list(state.get("surfaces", [])),
         has_quiz=bool(state.get("clarify_quiz", {}).get("questions")),
     )
+
+
+def _verify_warning(state: dict, *, runtime_evidence: list[str]) -> str:
+    surfaces = set(state.get("surfaces", []))
+    if "config" in surfaces and surfaces & {"backend", "api", "auth"} and not runtime_evidence:
+        return (
+            "Config changes affecting backend/api/auth were verified without runtime evidence. "
+            "Do not treat verification as runtime-safe until startup or health-path behavior is checked."
+        )
+    return ""
 
 
 def _extract_warning(data: dict | list | None) -> str:

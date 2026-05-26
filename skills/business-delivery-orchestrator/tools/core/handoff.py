@@ -26,10 +26,23 @@ def _delta_summary(delta: dict) -> str:
     return " | ".join(parts)
 
 
+def _runtime_config_gap(state: dict) -> str:
+    surfaces = set(state.get("surfaces", []))
+    summary = state.get("verification_summary", {})
+    runtime_evidence = summary.get("runtime_evidence", []) if isinstance(summary, dict) else []
+    if "config" in surfaces and surfaces & {"backend", "api", "auth"} and not runtime_evidence:
+        return (
+            "Runtime configuration was not verified with deployment-like startup or health-path evidence; "
+            "environment-variable availability is still unproven."
+        )
+    return ""
+
+
 def render_handoff(state: dict) -> str:
     template = load_template_code_block("handoff-template.md")
     summary = state.get("verification_summary", {})
     evidence = summary.get("evidence", [])
+    runtime_evidence = summary.get("runtime_evidence", [])
     gaps = summary.get("gaps", [])
     escalation = summary.get("escalation", [])
     latest_delta = state.get("delta", [])[-1] if state.get("delta") else None
@@ -81,6 +94,7 @@ def render_handoff(state: dict) -> str:
             review_notes.append(note)
     verified_entries = []
     verified_entries.extend(evidence[:4])
+    verified_entries.extend(runtime_evidence[:4])
     verified_entries.extend(review_notes[:4])
     if not verified_entries:
         verified_entries = ["No explicit verification evidence recorded."]
@@ -88,7 +102,12 @@ def render_handoff(state: dict) -> str:
     if changed:
         template = replace_section_placeholder(template, "Changed:", list_block(changed))
     template = replace_section_placeholder(template, "Verified:", list_block(verified_entries))
-    not_verified = gaps[:2] if gaps else ["No explicit gaps recorded"]
+    runtime_gap = _runtime_config_gap(state)
+    not_verified = list(gaps[:2]) if gaps else ["No explicit gaps recorded"]
+    if runtime_gap:
+        if not gaps:
+            not_verified = []
+        not_verified.append(runtime_gap)
     template = replace_section_placeholder(template, "Not verified:", list_block(not_verified))
     template = replace_section_placeholder(template, "Follow-up:", list_block(follow_ups))
     template = replace_section_placeholder(template, "Lessons Learned (Update MEMORY.md):", list_block(lessons))

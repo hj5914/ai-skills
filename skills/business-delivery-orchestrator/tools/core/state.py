@@ -41,6 +41,7 @@ def default_state() -> dict:
             "escalation": [],
             "stop_conditions": [],
             "evidence": [],
+            "runtime_evidence": [],
             "gaps": [],
         },
         "reviews": [],
@@ -196,11 +197,11 @@ def validate_state(state: dict) -> None:
     if invalid_surfaces:
         raise ValueError(f"BDO state surfaces contain invalid values: {invalid_surfaces}")
     summary = state["verification_summary"]
-    if set(summary.keys()) != {"checks", "escalation", "stop_conditions", "evidence", "gaps"}:
+    if set(summary.keys()) != {"checks", "escalation", "stop_conditions", "evidence", "runtime_evidence", "gaps"}:
         raise ValueError(
-            "BDO state verification_summary must contain checks, escalation, stop_conditions, evidence, gaps"
+            "BDO state verification_summary must contain checks, escalation, stop_conditions, evidence, runtime_evidence, gaps"
         )
-    for key in ("checks", "escalation", "stop_conditions", "evidence", "gaps"):
+    for key in ("checks", "escalation", "stop_conditions", "evidence", "runtime_evidence", "gaps"):
         if not isinstance(summary[key], list) or not all(isinstance(v, str) for v in summary[key]):
             raise ValueError(f"BDO state verification_summary.{key} must be a list of strings")
 

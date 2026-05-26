@@ -72,7 +72,7 @@
     "verification_summary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["checks", "escalation", "stop_conditions", "evidence", "gaps"],
+      "required": ["checks", "escalation", "stop_conditions", "evidence", "runtime_evidence", "gaps"],
       "properties": {
         "checks": {
           "type": "array",
@@ -87,6 +87,10 @@
           "items": { "type": "string" }
         },
         "evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "runtime_evidence": {
           "type": "array",
           "items": { "type": "string" }
         },

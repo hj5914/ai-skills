@@ -108,6 +108,8 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - **Cross-Phase Consistency Check (L/XL)**: Before running tests, verify Contract → Plan → Implementation alignment.
    - Run the smallest meaningful checks first, then broader checks when risk warrants it.
    - For `auth/data/payment/migration` work, include configuration presence checks and one key user or caller flow verification, not just build or typecheck.
+   - For `config + backend/api/auth` changes, verify the service can start with deployment-like configuration and that newly required env or config keys are actually available at runtime.
+   - When dynamic validation runs, record it explicitly as runtime evidence instead of folding it into generic build or test evidence.
    - Use `references/verification-gates.md` for verification depth and stop conditions.
    - Self-review the final diff for scope drift, existing-pattern fit, boundary cases, and unrelated changes before reporting completion.
 

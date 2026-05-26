@@ -22,6 +22,7 @@ from core.quiz import build_clarify_quiz, clarify_warning
 from core.scan import run_impact_scan
 from core.state import default_state, load_state, normalize_state, validate_state
 from core.templates import replace_section_placeholder
+from core.verify import render_verify
 
 BDO_SPEC = importlib.util.spec_from_file_location("bdo_cli", TOOLS_DIR / "bdo.py")
 assert BDO_SPEC and BDO_SPEC.loader
@@ -33,6 +34,7 @@ _ensure_contract_exists = BDO_MODULE._ensure_contract_exists
 _ensure_verification_complete = BDO_MODULE._ensure_verification_complete
 _invalidate_downstream_artifacts_if_contract_changed = BDO_MODULE._invalidate_downstream_artifacts_if_contract_changed
 _invalidate_handoff_if_upstream_changed = BDO_MODULE._invalidate_handoff_if_upstream_changed
+_verify_warning = BDO_MODULE._verify_warning
 build_resume_summary = BDO_MODULE.build_resume_summary
 _build_blocked_recovery = BDO_MODULE._build_blocked_recovery
 build_parser = BDO_MODULE.build_parser
@@ -44,6 +46,12 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
     def _run_cli_func_silently(self, func, args) -> None:
         with redirect_stdout(io.StringIO()):
             func(args)
+
+    def _run_cli_func_json(self, func, args) -> dict:
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            func(args)
+        return json.loads(buf.getvalue())
 
     def test_normalize_state_backfills_new_fields(self) -> None:
         legacy = {
@@ -74,6 +82,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         normalized = normalize_state(legacy)
 
         self.assertEqual(normalized["verification_summary"]["evidence"], [])
+        self.assertEqual(normalized["verification_summary"]["runtime_evidence"], [])
         self.assertEqual(normalized["verification_summary"]["gaps"], [])
         self.assertEqual(normalized["delta"][0]["summary"], "")
         self.assertEqual(normalized["delta"][0]["follow_ups"], [])
@@ -100,6 +109,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             loaded = load_state(path)
 
         self.assertEqual(loaded["verification_summary"]["evidence"], [])
+        self.assertEqual(loaded["verification_summary"]["runtime_evidence"], [])
         self.assertEqual(loaded["verification_summary"]["gaps"], [])
         self.assertEqual(loaded["delta"][0]["summary"], "")
         self.assertEqual(loaded["delta"][0]["follow_ups"], [])
@@ -169,6 +179,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             "escalation": ["Verify frontend/backend contract alignment because multiple layers changed"],
             "stop_conditions": [],
             "evidence": ["pytest tests/foo_test.py"],
+            "runtime_evidence": ["curl -i http://localhost:3000/login returned 200 and set-cookie"],
             "gaps": ["no e2e env"],
         }
         state["reviews"] = [
@@ -187,6 +198,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         rendered = render_handoff(state)
 
         self.assertIn("pytest tests/foo_test.py", rendered)
+        self.assertIn("curl -i http://localhost:3000/login returned 200 and set-cookie", rendered)
         self.assertIn("no e2e env", rendered)
         self.assertIn("contract alignment", rendered)
         self.assertIn("Investigate legacy default password handling separately", rendered)
@@ -201,6 +213,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
             "escalation": [],
             "stop_conditions": [],
             "evidence": ["pytest tests/foo_test.py"],
+            "runtime_evidence": [],
             "gaps": [],
         }
         state["reviews"] = [
@@ -218,6 +231,23 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("pytest tests/foo_test.py", rendered)
         self.assertNotIn("Needs stronger rollback check", rendered)
         self.assertNotIn("quality | BLOCKED", rendered)
+
+    def test_render_handoff_adds_runtime_config_gap_when_runtime_evidence_is_missing(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["config", "backend", "auth"]
+        state["verification_summary"] = {
+            "checks": ["Inspect final diff"],
+            "escalation": [],
+            "stop_conditions": [],
+            "evidence": ["pnpm build"],
+            "runtime_evidence": [],
+            "gaps": [],
+        }
+
+        rendered = render_handoff(state)
+
+        self.assertIn("Runtime configuration was not verified", rendered)
+        self.assertIn("environment-variable availability is still unproven", rendered)
 
     def test_render_memory_entry_derives_defaults_from_state(self) -> None:
         state = default_state()
@@ -272,6 +302,69 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("login/session happy-path and denial-path", checks)
         self.assertIn("sameSite and secure expectations", checks)
         self.assertIn("CORS or origin settings", checks)
+        self.assertIn("representative runtime or end-to-end flow", checks)
+        self.assertIn("deployment-like configuration", checks)
+
+    def test_render_verify_separates_runtime_evidence(self) -> None:
+        state = default_state()
+        state["verification_summary"] = {
+            "checks": ["Inspect final diff"],
+            "escalation": [],
+            "stop_conditions": [],
+            "evidence": ["pnpm build"],
+            "runtime_evidence": ["curl -i http://localhost:3000/health returned 200"],
+            "gaps": ["manual UI flow not run"],
+        }
+
+        rendered = render_verify(state)
+
+        self.assertIn("Runtime evidence collected:", rendered)
+        self.assertIn("pnpm build", rendered)
+        self.assertIn("curl -i http://localhost:3000/health returned 200", rendered)
+        self.assertIn("Build or typecheck success is not enough", rendered)
+
+    def test_verify_warning_flags_config_runtime_gap(self) -> None:
+        state = default_state()
+        state["surfaces"] = ["config", "backend", "auth"]
+
+        warning = _verify_warning(state, runtime_evidence=[])
+
+        self.assertIn("verified without runtime evidence", warning)
+
+    def test_verify_cli_emits_warning_when_config_runtime_evidence_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / ".bdo.state.json"
+            contract_path = Path(tmpdir) / "bdo.contract.md"
+            contract_path.write_text("contract\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "M"
+            state["contract_path"] = str(contract_path)
+            state["contract_stage"] = "lightweight"
+            state["surfaces"] = ["config", "backend", "auth"]
+            BDO_MODULE.save_state(state_path, state)
+            parser = build_parser()
+            args = parser.parse_args(
+                ["--state", str(state_path), "--json", "verify", "--evidence", "pnpm build"]
+            )
+
+            payload = self._run_cli_func_json(BDO_MODULE.cmd_verify, args)
+
+        self.assertIn("warning", payload["data"])
+        self.assertIn("verified without runtime evidence", payload["data"]["warning"])
+
+    def test_full_contract_verification_plan_mentions_runtime_flow(self) -> None:
+        contract = render_contract(
+            objective="Harden login flow",
+            size="L",
+            risk="high",
+            mode="full",
+            surfaces=["auth", "backend", "ui", "config"],
+        )
+
+        self.assertIn(
+            "start the affected service with deployment-like configuration, confirm required env or config keys are present, and record one startup or health-path check",
+            contract,
+        )
 
     def test_impact_scan_separates_code_test_and_doc_text_matches(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -654,28 +747,31 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("one delivery or several independent fixes", warning)
 
     def test_handoff_requires_spec_and_quality_reviews_for_large_tasks(self) -> None:
-        state = default_state()
-        state["size"] = "L"
-        state["verification_path"] = "bdo.verify.md"
-        state["verification_summary"] = {
-            "checks": [],
-            "escalation": [],
-            "stop_conditions": [],
-            "evidence": ["pytest tests/foo_test.py"],
-            "gaps": [],
-        }
-        state["reviews"] = [
-            {
-                "kind": "spec",
-                "status": "DONE",
-                "focus": "contract alignment",
-                "findings": [],
-                "evidence": ["checked contract"],
+        with tempfile.TemporaryDirectory() as tmpdir:
+            verification_path = Path(tmpdir) / "bdo.verify.md"
+            verification_path.write_text("ok\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "L"
+            state["verification_path"] = str(verification_path)
+            state["verification_summary"] = {
+                "checks": [],
+                "escalation": [],
+                "stop_conditions": [],
+                "evidence": ["pytest tests/foo_test.py"],
+                "gaps": [],
             }
-        ]
+            state["reviews"] = [
+                {
+                    "kind": "spec",
+                    "status": "DONE",
+                    "focus": "contract alignment",
+                    "findings": [],
+                    "evidence": ["checked contract"],
+                }
+            ]
 
-        with self.assertRaisesRegex(ValueError, "requires completed reviews for: quality"):
-            _ensure_verification_complete(state)
+            with self.assertRaisesRegex(ValueError, "requires completed reviews for: quality"):
+                _ensure_verification_complete(state)
 
     def test_handoff_allows_large_tasks_with_completed_spec_and_quality_reviews(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

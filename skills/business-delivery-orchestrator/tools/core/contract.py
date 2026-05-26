@@ -309,12 +309,23 @@ def _acceptance_defaults(surfaces: list[str]) -> list[str]:
 
 def _verification_defaults(surfaces: list[str]) -> list[str]:
     items = ["Inspect the final diff for unrelated churn."]
+    surface_set = set(surfaces)
     if "ui" in surfaces:
         items.append("Run a component test or manual UI render check.")
     if "backend" in surfaces or "api" in surfaces:
         items.append("Run a focused integration or representative request check.")
     if "auth" in surfaces:
         items.append("Verify both positive and negative permission paths.")
+    if "config" in surface_set and {"backend", "api", "auth"} & surface_set:
+        items.append(
+            "Start the service with deployment-like configuration and confirm newly required env or config keys are available."
+        )
+    if "auth" in surfaces:
+        items.append("Start the affected service and record one login/session or denial-path runtime check.")
+    elif "ui" in surfaces and ("api" in surfaces or "backend" in surfaces):
+        items.append("Start the touched stack and record one representative end-to-end user flow.")
+    elif "api" in surfaces or "backend" in surfaces:
+        items.append("Start the affected service and record one representative runtime request.")
     if "data" in surfaces:
         items.append("Review migration, compatibility, or rollback behavior.")
     if len(items) == 1:
@@ -401,6 +412,22 @@ def _observability_defaults(surfaces: list[str]) -> str:
 
 
 def _verification_plan_for_full(surfaces: list[str]) -> dict[str, str]:
+    surface_set = set(surfaces)
+    if "config" in surface_set and {"backend", "api", "auth"} & surface_set:
+        manual = (
+            "start the affected service with deployment-like configuration, confirm required env or config keys are present, "
+            "and record one startup or health-path check"
+        )
+    elif "auth" in surface_set:
+        manual = "start the affected service, execute one login/session or denial path, and record observed behavior"
+    elif "ui" in surface_set and ("api" in surface_set or "backend" in surface_set):
+        manual = "start the touched stack, exercise one representative end-to-end user flow, and confirm visible plus persisted behavior"
+    elif "api" in surface_set or "backend" in surface_set:
+        manual = "start the affected service and run one representative request against the changed boundary"
+    elif "ui" in surface_set:
+        manual = "run one manual UI smoke flow that covers the changed state transition"
+    else:
+        manual = "run a representative command or request"
     return {
         "unit": "focus on direct logic changes and boundary cases",
         "integration": (
@@ -408,7 +435,7 @@ def _verification_plan_for_full(surfaces: list[str]) -> dict[str, str]:
             if {"api", "backend", "ui"} & set(surfaces)
             else "run one representative integration path if applicable"
         ),
-        "manual": "smoke the user-facing flow and failure states" if "ui" in surfaces else "run a representative command or request",
+        "manual": manual,
         "build": "run relevant build, lint, or typecheck targets for touched modules",
     }
 

@@ -10,6 +10,7 @@ def render_verify(state: dict) -> str:
     escalation = summary["escalation"]
     stop_conditions = summary["stop_conditions"]
     evidence = summary.get("evidence", [])
+    runtime_evidence = summary.get("runtime_evidence", [])
     gaps = summary.get("gaps", [])
 
     return f"""# Verification Report
@@ -26,6 +27,9 @@ Recommended checks:
 Evidence collected:
 {_as_bullets(evidence or ["No execution evidence recorded yet"])}
 
+Runtime evidence collected:
+{_as_bullets(runtime_evidence or ["No runtime or end-to-end evidence recorded yet"])}
+
 Coverage gaps:
 {_as_bullets(gaps or ["No explicit gaps recorded; add one if verification is partial"])}
 
@@ -37,11 +41,19 @@ Stop conditions:
 
 Notes:
 - Use `--evidence` for commands or manual checks that actually ran.
+- Use `--runtime-evidence` for service startup, representative requests, UI flows, or other dynamic behavior checks that actually ran.
 - Use `--gap` for skipped validation, missing environments, or unresolved coverage holes.
+- Build or typecheck success is not enough to claim runtime behavior is correct.
 """
 
 
-def build_verification_summary(state: dict, *, evidence: list[str] | None = None, gaps: list[str] | None = None) -> dict:
+def build_verification_summary(
+    state: dict,
+    *,
+    evidence: list[str] | None = None,
+    runtime_evidence: list[str] | None = None,
+    gaps: list[str] | None = None,
+) -> dict:
     size = state.get("size", "")
     risk = state.get("risk", "")
     surfaces = state.get("surfaces", [])
@@ -50,6 +62,7 @@ def build_verification_summary(state: dict, *, evidence: list[str] | None = None
         "escalation": _escalation_triggers(size=size, risk=risk, surfaces=surfaces),
         "stop_conditions": _stop_conditions(size=size, risk=risk, surfaces=surfaces),
         "evidence": evidence or [],
+        "runtime_evidence": runtime_evidence or [],
         "gaps": gaps or [],
     }
 
@@ -88,6 +101,12 @@ def _checks_for_surfaces(surfaces: list[str]) -> list[str]:
         checks.append(
             "Confirm required auth-related env or config keys exist and CORS or origin settings match the changed flow"
         )
+    if "config" in surface_set and {"backend", "api", "auth"} & surface_set:
+        checks.append(
+            "Start the service with deployment-like configuration and verify required env or config keys are present via startup or health-path behavior"
+        )
+    if {"ui", "backend"} & surface_set or "api" in surface_set or "auth" in surface_set:
+        checks.append("Start the affected service or app and exercise one representative runtime or end-to-end flow.")
     if not surfaces:
         checks.append("Run one focused test or manual smoke check")
     return checks
