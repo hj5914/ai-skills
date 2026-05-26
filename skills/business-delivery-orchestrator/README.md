@@ -96,13 +96,17 @@ examples/
 ## 备注
 
 - 默认单 agent 执行，子代理只在边界清晰且收益明确时启用。
-- `XS/S` 工作默认先本地 `grep/read + focused check`，不要为了分类本身先跑完整 BDO/CLI 流程；只有出现 hard trigger、真实歧义或跨边界风险时再升级。
+- `XS/S` 工作默认先本地 `grep/read + focused check`，不要为了分类本身先跑完整 BDO/CLI 流程，也不要输出 `BDO Progress`；只有出现 hard trigger、真实歧义或跨边界风险时再升级。
 - `M` 级 lightweight contract 默认只保留 `Goal / Behavior / Acceptance / Verification / Assumptions`；`Constraints` 和 `Non-goals` 仅在确实有帮助时再展开。
 - 边界清晰的 `M` 任务写明 lightweight contract 和假设后可以继续推进；只有行为、安全、权限、数据、不可逆风险或验收边界仍模糊时才等待显式确认。
+- contract 的 acceptance 必须可观察，并能映射到测试、命令、请求、UI 操作或 runtime evidence；敏感 surface 要写清失败路径、权限/数据边界和回滚/兼容性。
 - contract/plan 要写已知文件路径；未知路径用有边界的探查步骤、决策点和停止条件表达，不要为了满足模板假装确定。
 - 用户可以主动指定当前任务分级；默认尊重该分级，但 `auth/data/payment/migration` 等 hard gate 仍然只能向上纠偏。
 - 只有在准备做委派决策时才需要读取 `references/delegation-matrix.md`；single-agent 和 fast-path 不需要为此增加流程负担。
+- 不要在需求未定、需要猜 API/产品行为/验收标准、或主 agent 只会复制子 agent 输出的情况下委派。
 - `auth`、`data`、`payment`、`migration` 这类敏感 surface 在 CLI 中都会强制要求 full contract；`L/XL` handoff 前会校验 contract / verify 产物文件仍然存在。
+- `.bdo.state.json`、`bdo.contract*.md`、`bdo.verify.md`、`bdo.handoff.md` 和普通 `MEMORY.md` 条目默认是工作产物，不应提交，除非项目或用户明确要保留交付记录。
+- 当任务缩小到单文件/小范围、无跨边界行为、验证路径清楚、用户要求 quick fix 且没有 hard gate 时，停止继续生成 BDO 产物，切回 fast path。
 - `scan` 是启发式，不是完整依赖图；它会区分 direct/import/code/test/doc 命中，并对敏感关键词做小幅 size 上调。
 - `contract-what` / `contract-how` 用于 L/XL 两段式契约。
 - `classify` 和 contract 命令会在大任务或高风险任务上给出 `quiz` 的软提示。
@@ -114,4 +118,5 @@ examples/
 - `contract` 的 Verification 默认项现在会尽量写出期望保留的运行证据类型，例如 `startup/health`、`set-cookie`、`status code`、`persisted change`、`log line`，减少 verify 阶段临时补想证据口径。
 - `delta --follow-up` 可把实现中发现但不应并入当前范围的问题显式带到 handoff。
 - `memory` 现在会按 lesson/rule 自动去重，避免同一条经验反复追加到 `MEMORY.md`；只在有可复用项目知识、复发故障模式或长期 guardrail 时写入。
+- 最终报告优先保持短：`Changed`、`Verified`、`Not verified / Risk`、`Follow-up`，XS/S 可进一步压缩。
 - 模板文件是推荐默认值，不是强制格式；宿主规范优先。

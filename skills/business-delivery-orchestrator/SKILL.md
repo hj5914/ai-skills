@@ -36,6 +36,8 @@ Skip delivery-contract templates, subagent decisions, and detailed handoff secti
 
 Users can explicitly request the fast path by saying "quick fix", "fast path", or "skip process" unless a Hard Trigger applies.
 
+For XS/S fast-path work, do not show `BDO Progress` blocks. The final report should be no more than the minimum useful shape: changed, verified, and any risk or unverified gap.
+
 ## Task Sizing
 
 Size the task before choosing process depth:
@@ -83,6 +85,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - For M tasks, use the lightweight template in `templates/lightweight-contract-template.md`. Default to the core sections (`Goal`, `Behavior`, `Acceptance`, `Verification`, `Assumptions`) and add `Constraints` or `Non-goals` only when they materially help.
    - For clear M tasks, write the lightweight contract, state assumptions, and continue without waiting when the user already gave enough direction and no critical ambiguity exists. Stop for confirmation when the contract would otherwise decide user-visible behavior, safety, permissions, data handling, irreversible changes, or acceptance boundaries.
    - **Bounded Unknowns, No Vague Placeholders**: Contracts and plans must never contain TBD, TODO, "implement later", "add appropriate error handling", "Similar to Task N", or steps that describe what to do without a bounded execution path. Name exact file paths when they are known. When paths or implementation details are not yet knowable, add a bounded discovery step with the files/commands to inspect, the decision point, and the stop condition. Do not put complete code in the plan unless the exact code is already known and useful for review.
+   - **Contract Quality Check**: Before implementation, confirm that acceptance criteria are observable, failure paths are covered when relevant, permissions/data boundaries are explicit for sensitive surfaces, non-goals prevent scope drift, and each verification item maps to a command, request, UI action, or runtime observation.
    - Keep it concise. Use `references/delivery-contract.md` when the requirement is ambiguous, cross-functional, or L/XL.
 
 3. Decide whether to delegate.
@@ -148,6 +151,8 @@ After completing each phase, mark it in a brief status block. This gives the use
 
 Update this block at each phase transition. Use `[x]` for done, `[ ]` for pending, `[-]` for skipped.
 
+Use progress blocks only for M+ multi-phase work, long-running tasks, or when the user asks for status visibility. Do not use them for XS/S fast-path work.
+
 ## Delegation Policy
 
 Do not create subagents just because roles exist. Create them only when at least one of these is true:
@@ -164,6 +169,9 @@ Do not delegate when:
 - The subagent would need to modify the same files as the primary agent without isolation.
 - The only benefit is role theater.
 - The task is XS/S and local grep/read can identify the touched files and existing pattern quickly.
+- Requirements are not stable enough to give a subagent a bounded slice.
+- The subagent would need to guess API shapes, product behavior, or acceptance criteria.
+- The primary agent would mostly copy/paste subagent output instead of integrating and verifying it.
 
 Before spawning subagents, state the reason in one sentence. If the reason sounds weak, stay single-agent.
 
@@ -225,6 +233,7 @@ Summarize subagent results before integrating them. Do not paste full long outpu
 ## Anti-Overhead Controls
 
 - **Confirmation Protocol**: On critical gates (Contract approval, Plan review, Release), prefer a 3-line summary and a specific confirmation keyword (e.g., `CONFIRM_PLAN`) when the host environment and user workflow support explicit approvals. For M tasks, require explicit confirmation only when behavior, safety, permissions, data, irreversible risk, or acceptance boundaries remain ambiguous after reasonable assumptions.
+- **Stop Using BDO**: Collapse to the fast path when the task has narrowed to one file or one small related set, no cross-boundary behavior remains, the verification path is obvious, the user asks for a quick fix, and no hard gate applies. Keep any useful notes, but stop producing BDO artifacts.
 - Cap the active delivery contract at roughly 20 bullets unless the user asks for a detailed plan.
 - Ask at most three clarifying questions before making conservative assumptions on XS/S/M work; for L/XL, ask only the questions that materially change behavior, safety, or irreversible actions.
 - Do not read reference files unless the current phase needs them.
@@ -257,6 +266,7 @@ If ECC tools or agents are installed, use them as implementation mechanisms, but
 This skill includes a local helper at `tools/bdo.py`. Use it when structured artifacts or machine-readable output are useful; skip it for trivial fast-path work.
 
 - Core commands: `init`, `classify`, `phase`, `quiz`, `scan`, `mine`, `contract`, `contract-what`, `contract-how`, `review`, `verify`, `handoff`, `memory`, `delta`, `status`, `resume`
+- Artifact policy: `.bdo.state.json`, `bdo.contract*.md`, `bdo.verify.md`, `bdo.handoff.md`, and routine `MEMORY.md` entries are working artifacts by default. Do not commit them unless the repository or user explicitly wants the delivery record preserved.
 - Enforced checks: `auth/data/payment/migration` work requires a full contract; manual `phase` transitions cannot bypass required contract / verify artifacts when those artifacts are required; CLI verification requires a contract for M/L/XL tasks; L/XL work cannot stop at `contract-what` and must reach `contract-how` or `contract --mode full`; L/XL handoff requires contract and verification files that still exist plus completed `spec` and `quality` reviews. For M tasks, CLI verify/handoff artifacts are optional unless the risk or user workflow requires them.
 - Soft reminders: `classify` and contract commands suggest `quiz` when the task is large or risky and no clarify quiz has been recorded yet
 - `resume` summarizes missing artifacts, phase/state mismatches, minimal recovery actions for blocked reviews, which existing artifacts a new session should inspect first, and a short recovery summary you can reuse when resuming work

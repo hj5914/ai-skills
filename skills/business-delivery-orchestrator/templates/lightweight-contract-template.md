@@ -32,3 +32,4 @@ Assumptions:
 - Keep it short enough to stay in active context.
 - Remove any section that is not relevant instead of padding it.
 - Freeze behavior before splitting work across frontend/backend or primary/subagent boundaries.
+- Each acceptance item should be observable and map to a focused check, command, request, UI action, or runtime observation.

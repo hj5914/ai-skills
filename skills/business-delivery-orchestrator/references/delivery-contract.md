@@ -39,6 +39,9 @@ Escalate from lightweight to full when frontend/backend/data/test boundaries nee
 - Global project-level rules always take precedence over task-level contract notes.
 - Freeze names and shapes before splitting frontend/backend work.
 - Treat API, schema, and acceptance criteria as shared truth.
+- Acceptance criteria must be observable. Each one should map to a test, command, representative request, UI action, log line, or runtime observation.
+- Cover relevant failure paths, permissions, data boundaries, and rollback/compatibility concerns before implementation on sensitive surfaces.
+- Use non-goals to prevent scope drift when the user request could be interpreted broadly.
 - If implementation reveals the contract is wrong, update the contract first, then adjust code.
 - Do not let each role invent its own version of product behavior.
 - Keep contracts proportional. A small task should not grow a full product spec just because a template exists.

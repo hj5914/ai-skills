@@ -62,3 +62,5 @@ Risks and assumptions:
 - Prefer existing repository behavior over new invention.
 - Update the contract before changing code when product behavior or API shape shifts.
 - For `L/XL` tasks, split into a WHAT pass and a HOW pass before implementation.
+- Each acceptance item should be observable and map to verification evidence.
+- Sensitive surfaces should spell out failure paths, permissions, data boundaries, and rollback or compatibility concerns.
