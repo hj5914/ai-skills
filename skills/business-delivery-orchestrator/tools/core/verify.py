@@ -1,5 +1,31 @@
 from __future__ import annotations
 
+VERIFY_RECIPES = {
+    "smoke": [
+        "Recipe smoke: start the affected service or app and exercise one representative happy path before handoff.",
+    ],
+    "ui-smoke": [
+        "Recipe ui-smoke: render the changed screen in a running app and exercise one representative user-visible flow.",
+        "Recipe ui-smoke: if the touched view owns them, inspect loading, empty, and error states in the running UI.",
+    ],
+    "api-smoke": [
+        "Recipe api-smoke: start the changed service and send one representative request that covers the modified contract.",
+        "Recipe api-smoke: capture the observed status code or payload shape in runtime evidence.",
+    ],
+    "auth-runtime": [
+        "Recipe auth-runtime: verify one login or session happy path and one denial or expired-session path in a running environment.",
+        "Recipe auth-runtime: record cookie, token, origin, or CORS behavior that matters to the changed auth flow.",
+    ],
+    "config-runtime": [
+        "Recipe config-runtime: start the service with deployment-like configuration and confirm required env or config keys are present.",
+        "Recipe config-runtime: capture one startup log, health-path check, or equivalent runtime proof.",
+    ],
+}
+
+
+def verify_recipe_choices() -> list[str]:
+    return sorted(VERIFY_RECIPES)
+
 
 def render_verify(state: dict) -> str:
     summary = state.get("verification_summary") or build_verification_summary(state)
@@ -42,6 +68,7 @@ Stop conditions:
 Notes:
 - Use `--evidence` for commands or manual checks that actually ran.
 - Use `--runtime-evidence` for service startup, representative requests, UI flows, or other dynamic behavior checks that actually ran.
+- Use `--recipe` to add a verification checklist template; recipes do not execute commands or start tools for you.
 - Use `--gap` for skipped validation, missing environments, or unresolved coverage holes.
 - Build or typecheck success is not enough to claim runtime behavior is correct.
 """
@@ -53,17 +80,25 @@ def build_verification_summary(
     evidence: list[str] | None = None,
     runtime_evidence: list[str] | None = None,
     gaps: list[str] | None = None,
+    recipes: list[str] | None = None,
 ) -> dict:
     size = state.get("size", "")
     risk = state.get("risk", "")
     surfaces = state.get("surfaces", [])
+    selected_recipes = _normalize_unique(recipes or [])
+    runtime_entries = runtime_evidence or []
+    gap_entries = list(gaps or [])
+    if selected_recipes and not runtime_entries:
+        gap_entries.append(
+            "Selected verification recipe(s) still need host-run runtime checks; add `--runtime-evidence` after they actually run."
+        )
     return {
-        "checks": _checks_for_surfaces(surfaces),
+        "checks": _normalize_unique(_checks_for_surfaces(surfaces) + _checks_for_recipes(selected_recipes)),
         "escalation": _escalation_triggers(size=size, risk=risk, surfaces=surfaces),
         "stop_conditions": _stop_conditions(size=size, risk=risk, surfaces=surfaces),
         "evidence": evidence or [],
-        "runtime_evidence": runtime_evidence or [],
-        "gaps": gaps or [],
+        "runtime_evidence": runtime_entries,
+        "gaps": _normalize_unique(gap_entries),
     }
 
 
@@ -110,6 +145,23 @@ def _checks_for_surfaces(surfaces: list[str]) -> list[str]:
     if not surfaces:
         checks.append("Run one focused test or manual smoke check")
     return checks
+
+
+def _checks_for_recipes(recipes: list[str]) -> list[str]:
+    checks: list[str] = []
+    for recipe in recipes:
+        checks.extend(VERIFY_RECIPES.get(recipe, []))
+    return checks
+
+
+def _normalize_unique(items: list[str]) -> list[str]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        if item not in seen:
+            ordered.append(item)
+            seen.add(item)
+    return ordered
 
 
 def _escalation_triggers(*, size: str, risk: str, surfaces: list[str]) -> list[str]:

@@ -113,6 +113,7 @@ These gates block progress until satisfied. Treat them as mandatory, not advisor
    - For `auth/data/payment/migration` work, include configuration presence checks and one key user or caller flow verification, not just build or typecheck.
    - For `config + backend/api/auth` changes, verify the service can start with deployment-like configuration and that newly required env or config keys are actually available at runtime.
    - When dynamic validation runs, record it explicitly as runtime evidence instead of folding it into generic build or test evidence.
+   - If you want structured runtime coverage without turning this skill into an execution engine, use `tools/bdo.py verify --recipe ...` to add checklist guidance only; the host tool still owns actually starting services, sending requests, or running Playwright.
    - Use `references/verification-gates.md` for verification depth and stop conditions.
    - Self-review the final diff for scope drift, existing-pattern fit, boundary cases, and unrelated changes before reporting completion.
 
@@ -253,5 +254,6 @@ This skill includes a local helper at `tools/bdo.py`. Use it when structured art
 - Enforced checks: `auth/data/payment/migration` work requires a full contract; manual `phase` transitions cannot bypass required contract / verify artifacts; M/L/XL verification requires a contract; L/XL work cannot stop at `contract-what` and must reach `contract-how` or `contract --mode full`; handoff requires contract and verification files that still exist; L/XL handoff also requires completed `spec` and `quality` reviews
 - Soft reminders: `classify` and contract commands suggest `quiz` when the task is large or risky and no clarify quiz has been recorded yet
 - `resume` summarizes missing artifacts, phase/state mismatches, and minimal recovery actions for blocked reviews
+- `verify --recipe smoke|ui-smoke|api-smoke|auth-runtime|config-runtime` adds verification checklist templates only; it does not start services, send requests, or run browsers for you
 - Output: add `--json` for machine-readable output
 - State shape: see `schema/bdo-state.schema.json`

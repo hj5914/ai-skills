@@ -441,6 +441,22 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("representative runtime or end-to-end flow", checks)
         self.assertIn("deployment-like configuration", checks)
 
+    def test_verification_recipe_adds_guidance_and_runtime_gap(self) -> None:
+        summary = BDO_MODULE.build_verification_summary(
+            {
+                "size": "M",
+                "risk": "medium",
+                "surfaces": ["ui", "auth"],
+            },
+            recipes=["ui-smoke", "auth-runtime"],
+        )
+
+        checks = "\n".join(summary["checks"])
+        gaps = "\n".join(summary["gaps"])
+        self.assertIn("Recipe ui-smoke: render the changed screen", checks)
+        self.assertIn("Recipe auth-runtime: verify one login or session happy path", checks)
+        self.assertIn("still need host-run runtime checks", gaps)
+
     def test_render_verify_separates_runtime_evidence(self) -> None:
         state = default_state()
         state["verification_summary"] = {
@@ -457,6 +473,7 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
         self.assertIn("Runtime evidence collected:", rendered)
         self.assertIn("pnpm build", rendered)
         self.assertIn("curl -i http://localhost:3000/health returned 200", rendered)
+        self.assertIn("Use `--recipe` to add a verification checklist template", rendered)
         self.assertIn("Build or typecheck success is not enough", rendered)
 
     def test_verify_warning_flags_config_runtime_gap(self) -> None:
@@ -487,6 +504,43 @@ class BusinessDeliveryOrchestratorTests(unittest.TestCase):
 
         self.assertIn("warning", payload["data"])
         self.assertIn("verified without runtime evidence", payload["data"]["warning"])
+
+    def test_verify_cli_returns_selected_recipes_without_executing_them(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_path = Path(tmpdir) / ".bdo.state.json"
+            contract_path = Path(tmpdir) / "bdo.contract.md"
+            contract_path.write_text("contract\n", encoding="utf-8")
+            state = default_state()
+            state["size"] = "M"
+            state["contract_path"] = str(contract_path)
+            state["contract_stage"] = "lightweight"
+            state["surfaces"] = ["ui", "api"]
+            BDO_MODULE.save_state(state_path, state)
+            parser = build_parser()
+            args = parser.parse_args(
+                [
+                    "--state",
+                    str(state_path),
+                    "--json",
+                    "verify",
+                    "--recipe",
+                    "ui-smoke",
+                    "--recipe",
+                    "api-smoke",
+                    "--evidence",
+                    "pnpm test --filter card",
+                ]
+            )
+
+            payload = self._run_cli_func_json(BDO_MODULE.cmd_verify, args)
+
+        self.assertEqual(payload["data"]["recipes"], ["ui-smoke", "api-smoke"])
+        self.assertTrue(
+            any("Recipe ui-smoke: render the changed screen" in item for item in payload["data"]["checks"])
+        )
+        self.assertTrue(
+            any("still need host-run runtime checks" in item for item in payload["data"]["gaps"])
+        )
 
     def test_full_contract_verification_plan_mentions_runtime_flow(self) -> None:
         contract = render_contract(

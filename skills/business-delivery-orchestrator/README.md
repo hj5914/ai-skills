@@ -83,5 +83,6 @@ examples/
 - `contract-what` / `contract-how` 用于 L/XL 两段式契约。
 - `classify` 和 contract 命令会在大任务或高风险任务上给出 `quiz` 的软提示。
 - `verify --runtime-evidence` 用于单独记录启动服务、发请求、手动走流程等动态验证证据。
+- `verify --recipe smoke|ui-smoke|api-smoke|auth-runtime|config-runtime` 只补充验证清单模板，不会自动启动项目、发请求或运行 Playwright。
 - `delta --follow-up` 可把实现中发现但不应并入当前范围的问题显式带到 handoff。
 - 模板文件是推荐默认值，不是强制格式；宿主规范优先。

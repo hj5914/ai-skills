@@ -25,7 +25,7 @@ from core.state import (
     save_state,
     set_phase,
 )
-from core.verify import build_verification_summary, render_verify
+from core.verify import build_verification_summary, render_verify, verify_recipe_choices
 
 
 def _write_text(path: Path, content: str) -> None:
@@ -268,11 +268,13 @@ def cmd_verify(args: argparse.Namespace) -> int:
     state = load_state(state_path)
     _ensure_contract_exists(state, command="verify")
     runtime_evidence = args.runtime_evidence or []
+    recipes = args.recipe or []
     state["verification_summary"] = build_verification_summary(
         state,
         evidence=args.evidence or [],
         runtime_evidence=runtime_evidence,
         gaps=args.gap or [],
+        recipes=recipes,
     )
     set_phase(state, "verify")
     report = render_verify(state)
@@ -288,6 +290,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
         output_path=report_path,
         data={
             **state["verification_summary"],
+            "recipes": recipes,
             "warning": _verify_warning(state, runtime_evidence=runtime_evidence),
         },
     )
@@ -482,6 +485,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("verify")
     p.add_argument("--output", type=Path)
     p.add_argument("--evidence", action="append", help="Actual checks or commands that ran")
+    p.add_argument(
+        "--recipe",
+        action="append",
+        choices=verify_recipe_choices(),
+        help="Verification checklist template to apply; recipes add guidance only and do not execute tools",
+    )
     p.add_argument(
         "--runtime-evidence",
         action="append",
